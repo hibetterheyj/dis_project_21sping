@@ -17,7 +17,7 @@
 #define MAX_SPEED 1000          // Maximum speed 
 #define INC_SPEED 5             // Increment not expressed in webots 
 #define MAX_SPEED_WEB 6.28      // Maximum speed webots
-#define TIME_INIT_ACC 1         // Time in second
+#define TIME_INIT_ACC 3         // Time in second
 
 // verbose flags
 #define VERBOSE_GPS false        // Print GPS values
@@ -59,7 +59,7 @@ static void controller_get_gps();
 static double controller_get_heading();
 static void controller_get_acc();
 static void controller_get_encoder();
-static void controller_compute_mean_acc();
+static void controller_compute_mean_acc(int ts);
 static void init_devices(int ts);
 
 // logs
@@ -73,12 +73,16 @@ int main()
   init_devices(time_step);
   odo_reset(time_step);
   controller_init_log("logs.csv");
-  controller_compute_mean_acc();
+  //controller_compute_mean_acc();
   
   while (wb_robot_step(time_step) != -1)  {
     controller_get_pose();
     controller_get_acc();
     controller_get_encoder();
+    if((wb_robot_get_time()<TIME_INIT_ACC)&&(wb_robot_get_time()>1)) //get mean values when the robot moves at cst speed
+    {
+      controller_compute_mean_acc(time_step);
+    }
     // we only take the first value of the accelerometer as the robot immediately starts moving
     odo_compute_acc(&_odo_acc, _meas.acc, _meas.acc_mean);
     odo_compute_encoders(&_odo_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
@@ -192,13 +196,32 @@ void controller_get_encoder()
     printf("ROBOT enc : %g %g\n", _meas.left_enc, _meas.right_enc);
 }
 
-void controller_compute_mean_acc()
+void controller_compute_mean_acc(int ts)
+{
+  static int count = 0;
+  
+  count++;
+  
+  if( count > 20 ) // Remove the effects of strong acceleration at the begining
+  {
+    for(int i = 0; i < 3; i++)  
+        _meas.acc_mean[i] = (_meas.acc_mean[i] * (count - 1) + _meas.acc[i]) / (double) count;
+  }
+  
+  if( count == (int) (TIME_INIT_ACC / (double) ts * 1000) )
+    printf("Accelerometer initialization Done ! \n");
+
+  if(VERBOSE_ACC_MEAN)
+        printf("ROBOT acc mean : %g %g %g\n", _meas.acc_mean[0], _meas.acc_mean[1] , _meas.acc_mean[2]);
+}
+
+/*void controller_compute_mean_acc()
 {
   _meas.acc_mean[0] = 6.56983e-05;
   _meas.acc_mean[1] = 0.00781197;
   _meas.acc_mean[2] = 9.81;
   //printf("bias set \n");
-}
+}*/
 
 void controller_print_log(double time)
 {
