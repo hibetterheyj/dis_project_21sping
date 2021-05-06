@@ -1,4 +1,4 @@
-# Copyright 1996-2019 Cyberbotics Ltd.
+# Copyright 1996-2020 Cyberbotics Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,8 +57,6 @@
 ### ---- Webots included libraries ----
 ### if you want to use the Webots C API in your C++ controller program:
 ### USE_C_API = true
-### if you want to link with the Qt framework embedded in Webots:
-### QT = core gui widgets network
 ###
 ### ---- Debug mode ----
 ### if you want to display the gcc command line for compilation and link, as
@@ -68,8 +66,10 @@
 ###-----------------------------------------------------------------------------
 
 ### Do not modify: this includes Webots global Makefile.include
-C_SOURCES = localization_controller.c trajectories.c odometry.c
-space :=
-space +=
+C_SOURCES = localization_controller.c trajectories.c odometry.c kalman.c
+INCLUDE = -I"C:\msys64\mingw64\include"
+LIBRARIES = -L"C:\msys64\mingw64\lib" -llibgsl
+null :=
+space := $(null) $(null)
 WEBOTS_HOME_PATH=$(subst $(space),\ ,$(strip $(subst \,/,$(WEBOTS_HOME))))
 include $(WEBOTS_HOME_PATH)/resources/Makefile.include
