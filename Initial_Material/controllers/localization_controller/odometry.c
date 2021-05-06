@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
+#include <gsl/gsl_sf_bessel.h>
 
 #include "odometry.h"
 
@@ -27,19 +28,27 @@ static pose_t _odo_pose_acc, _odo_speed_acc, _odo_pose_enc, _odo_pose_enc_bonus;
  * @param[in]  acc       The acceleration
  * @param[in]  acc_mean  The acc mean
  */
+
 void odo_compute_acc(pose_t* odo, const double acc[3], const double acc_mean[3])
 {
 	
 	double acc_wx = ( acc[1] - acc_mean[1]);
+	
 	double a = _odo_pose_enc.heading;
 	
 	_odo_speed_acc.x += acc_wx*_T;
 	
 	_odo_pose_acc.x += _odo_speed_acc.x*_T*cos(a);
 	_odo_pose_acc.y += _odo_speed_acc.x*_T*sin(a);
-	
 	_odo_pose_acc.heading= a;
-
+           
+           
+            /*_odo_speed_acc.x += acc_wx*_T*cos(a);
+	_odo_speed_acc.y += acc_wx*_T*sin(a);
+	
+	_odo_pose_acc.x += _odo_speed_acc.x*_T;
+	_odo_pose_acc.y += _odo_speed_acc.y*_T;*/
+	
 	memcpy(odo, &_odo_pose_acc, sizeof(pose_t));
 	
 	if(VERBOSE_ODO_ACC)
