@@ -1,6 +1,9 @@
 // generic libraries
 #include <stdio.h>
 #include <string.h>
+#include <gsl/gsl_sf_bessel.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_vector.h>
 
 // webots libraries
 #include <webots/robot.h>
@@ -12,6 +15,7 @@
 // custom files
 #include "trajectories.h"
 #include "odometry.h"
+#include "kalman.h"
 
 // constants
 #define MAX_SPEED 1000          // Maximum speed 
@@ -45,6 +49,11 @@ static pose_t         _pose, _odo_acc, _odo_enc;
 static pose_t         _pose_origin = {-2.9, 0, 0};
 double last_gps_time_s = 0.0f;
 static FILE *fp;
+static gsl_matrix*Cov;
+static gsl_matrix*X;
+
+double A[2][3]= {{1,2,3},{4,5,6}};
+double B[3][1]= {{7},{8},{9}};
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -66,26 +75,36 @@ static void init_devices(int ts);
 static void controller_print_log(double time);
 static void controller_init_log(const char* filename);
 
+//static void test_gsl();
+static void init_state();
+
+
 int main() 
 {
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
   init_devices(time_step);
   odo_reset(time_step);
+  kalman_reset(time_step);
   controller_init_log("logs.csv");
+  init_state();
+  //printf(" %g \n",gsl_matrix_get(Cov, 0, 0));
   //controller_compute_mean_acc();
   
   while (wb_robot_step(time_step) != -1)  {
     controller_get_pose();
+    //test_gsl();
     controller_get_acc();
     controller_get_encoder();
     if((wb_robot_get_time()<TIME_INIT_ACC)&&(wb_robot_get_time()>1)) //get mean values when the robot moves at cst speed
     {
       controller_compute_mean_acc(time_step);
     }
-    // we only take the first value of the accelerometer as the robot immediately starts moving
     odo_compute_acc(&_odo_acc, _meas.acc, _meas.acc_mean);
     odo_compute_encoders(&_odo_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
+    kalman_compute_acc(X,Cov,(_meas.acc[1]-_meas.acc_mean[1])*cos(_odo_enc.heading),
+      (_meas.acc[1]-_meas.acc_mean[1])*sin(_odo_enc.heading),_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
+    //printf(" %g \n",gsl_matrix_get(X, 0, 0));
 
     // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor);
@@ -98,6 +117,22 @@ int main()
     // End of the simulation
   wb_robot_cleanup();
   return 0;
+}
+
+/*void test_gsl()
+{
+  double x = 5.0;
+  double y = gsl_sf_bessel_J0 (x);
+  printf ("J0(%g) = %.18e\n", x, y);
+}*/
+void init_state() //declaration of kalman filter input and output variables
+{
+  Cov = gsl_matrix_calloc(4, 4);
+  gsl_matrix_set(Cov,0,0,0.001);
+  gsl_matrix_set(Cov,1,1,0.001);
+  gsl_matrix_set(Cov,2,2,0.001);
+  gsl_matrix_set(Cov,3,3,0.001);
+  X= gsl_matrix_calloc(4, 1);
 }
 
 void init_devices(int ts) {
@@ -228,10 +263,11 @@ void controller_print_log(double time)
 
   if( fp != NULL)
   {
-    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
+    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
             time, _pose.x, _pose.y , _pose.heading, _meas.gps[0], _meas.gps[1], 
       _meas.gps[2], _meas.acc[0], _meas.acc[1], _meas.acc[2], _meas.right_enc, _meas.left_enc, 
-      _odo_acc.x, _odo_acc.y, _odo_acc.heading, _odo_enc.x, _odo_enc.y, _odo_enc.heading);
+      _odo_acc.x, _odo_acc.y, _odo_acc.heading, _odo_enc.x, _odo_enc.y, _odo_enc.heading,
+      gsl_matrix_get(X,0,0), gsl_matrix_get(X,1,0), gsl_matrix_get(X,2,0), gsl_matrix_get(X,3,0));
   }
 
 }
@@ -240,5 +276,5 @@ void controller_print_log(double time)
 void controller_init_log(const char* filename)
 {
   fp = fopen(filename,"w");
-  fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; gps_z; acc_0; acc_1; acc_2; right_enc; left_enc; odo_acc_x; odo_acc_y; odo_acc_heading; odo_enc_x; odo_enc_y; odo_enc_heading\n");
+  fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; gps_z; acc_0; acc_1; acc_2; right_enc; left_enc; odo_acc_x; odo_acc_y; odo_acc_heading; odo_enc_x; odo_enc_y; odo_enc_heading; kal_x; kal_y; kal_vx; kal_vy\n");
 }
