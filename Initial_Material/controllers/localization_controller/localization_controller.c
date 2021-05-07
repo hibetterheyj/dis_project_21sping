@@ -11,6 +11,7 @@
 #include <webots/gps.h>
 #include <webots/accelerometer.h>
 #include <webots/position_sensor.h>
+#include <webots/emitter.h>
 
 // custom files
 #include "trajectories.h"
@@ -48,6 +49,8 @@ static measurement_t  _meas;
 static pose_t         _pose, _odo_acc, _odo_enc;
 static pose_t         _pose_origin = {-2.9, 0, 0};
 double last_gps_time_s = 0.0f;
+double last_gps_send_time_s = 0.0f;
+double message[6] ;
 static FILE *fp;
 static gsl_matrix*Cov;
 static gsl_matrix*X;
@@ -61,6 +64,7 @@ WbDeviceTag dev_left_encoder;
 WbDeviceTag dev_right_encoder;
 WbDeviceTag dev_left_motor; 
 WbDeviceTag dev_right_motor; 
+WbDeviceTag emitter;		// Handle for the emitter node
 
 // devices
 static void controller_get_pose();
@@ -70,13 +74,17 @@ static void controller_get_acc();
 static void controller_get_encoder();
 static void controller_compute_mean_acc(int ts);
 static void init_devices(int ts);
+static void send_mea();
 
 // logs
 static void controller_print_log(double time);
 static void controller_init_log(const char* filename);
 
+
 //static void test_gsl();
 static void init_state();
+
+char* robot_name;
 
 
 int main() 
@@ -102,15 +110,19 @@ int main()
     }
     odo_compute_acc(&_odo_acc, _meas.acc, _meas.acc_mean);
     odo_compute_encoders(&_odo_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
+
     kalman_compute_acc(X,Cov,(_meas.acc[1]-_meas.acc_mean[1])*cos(_odo_enc.heading),
       (_meas.acc[1]-_meas.acc_mean[1])*sin(_odo_enc.heading),_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
     //printf(" %g \n",gsl_matrix_get(X, 0, 0));
 
+
+    // send measurements to supervisor
+    send_mea();
+
     // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor);
-    //trajectory_2(dev_left_motor, dev_right_motor);
-      
-      controller_print_log(wb_robot_get_time());
+    //trajectory_2(dev_left_motor, dev_right_motor);      
+    controller_print_log(wb_robot_get_time());
   }
   if(fp != NULL)
     fclose(fp);
@@ -154,6 +166,10 @@ void init_devices(int ts) {
   wb_motor_set_position(dev_right_motor, INFINITY);
   wb_motor_set_velocity(dev_left_motor, 0.0);
   wb_motor_set_velocity(dev_right_motor, 0.0);
+  
+  emitter = wb_robot_get_device("emitter");
+  if (emitter==0) printf("miss emitter\n");
+  if (emitter!=0) printf("emitter works\n");
 }
 
 void controller_get_pose()
@@ -276,5 +292,21 @@ void controller_print_log(double time)
 void controller_init_log(const char* filename)
 {
   fp = fopen(filename,"w");
+
   fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; gps_z; acc_0; acc_1; acc_2; right_enc; left_enc; odo_acc_x; odo_acc_y; odo_acc_heading; odo_enc_x; odo_enc_y; odo_enc_heading; kal_x; kal_y; kal_vx; kal_vy\n");
+}
+
+void send_mea() {
+  double time_now_s = wb_robot_get_time();
+  if (time_now_s - last_gps_send_time_s > 1.0f) {
+    last_gps_send_time_s = time_now_s;
+    message[0] = _meas.gps[0];
+    message[1] = _meas.gps[2];
+    
+  }
+  message[2] = _odo_acc.x;
+  message[3] = _odo_acc.y;
+  message[4] = _odo_enc.x;
+  message[5] = _odo_enc.y;
+  wb_emitter_send(emitter,message,6*sizeof(double)); 
 }
