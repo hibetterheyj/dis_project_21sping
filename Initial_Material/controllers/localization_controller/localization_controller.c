@@ -55,9 +55,6 @@ static FILE *fp;
 static gsl_matrix*Cov;
 static gsl_matrix*X;
 
-double A[2][3]= {{1,2,3},{4,5,6}};
-double B[3][1]= {{7},{8},{9}};
-
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
 WbDeviceTag dev_left_encoder;
@@ -73,6 +70,7 @@ static double controller_get_heading();
 static void controller_get_acc();
 static void controller_get_encoder();
 static void controller_compute_mean_acc(int ts);
+static void controller_compute_initial_mean_acc();
 static void init_devices(int ts);
 static void send_mea();
 
@@ -94,20 +92,23 @@ int main()
   init_devices(time_step);
   odo_reset(time_step);
   kalman_reset(time_step);
-  controller_init_log("logs.csv");
-  init_state();
-  //printf(" %g \n",gsl_matrix_get(Cov, 0, 0));
-  //controller_compute_mean_acc();
+  controller_init_log("logs.csv"); //logs file
+  init_state(); //initial state variables for kalman filter
+  
+  //initial mean acceleration (as calibration takes place when the robot moves at cst speed)
+  //improves acceleration odometry in the beginning
+  controller_compute_initial_mean_acc();
   
   while (wb_robot_step(time_step) != -1)  {
     controller_get_pose();
-    //test_gsl();
     controller_get_acc();
     controller_get_encoder();
-    if((wb_robot_get_time()<TIME_INIT_ACC)&&(wb_robot_get_time()>1)) //get mean values when the robot moves at cst speed
+    //get mean values when the robot moves at cst speed
+    if((wb_robot_get_time()<TIME_INIT_ACC)&&(wb_robot_get_time()>1))
     {
       controller_compute_mean_acc(time_step);
     }
+    //compute odometries and kalman filter based localization
     odo_compute_acc(&_odo_acc, _meas.acc, _meas.acc_mean);
     odo_compute_encoders(&_odo_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
 
@@ -131,12 +132,6 @@ int main()
   return 0;
 }
 
-/*void test_gsl()
-{
-  double x = 5.0;
-  double y = gsl_sf_bessel_J0 (x);
-  printf ("J0(%g) = %.18e\n", x, y);
-}*/
 void init_state() //declaration of kalman filter input and output variables
 {
   Cov = gsl_matrix_calloc(4, 4);
@@ -182,9 +177,7 @@ void controller_get_pose()
 
     // To Do : Fill the structure pose_t {x, y, heading}. Use the _pose_origin.
     _pose.x = _meas.gps[0] - _pose_origin.x;
-    
     _pose.y = -(_meas.gps[2] - _pose_origin.y);
-    
     _pose.heading = controller_get_heading() + _pose_origin.heading;
   
     if(VERBOSE_POSE)
@@ -258,7 +251,11 @@ void controller_compute_mean_acc(int ts)
     for(int i = 0; i < 3; i++)  
         _meas.acc_mean[i] = (_meas.acc_mean[i] * (count - 1) + _meas.acc[i]) / (double) count;
   }
-  
+  else //reset mean values
+  {
+    for(int i = 0; i < 3; i++)
+        _meas.acc_mean[i] = 0.0;
+  }
   if( count == (int) (TIME_INIT_ACC / (double) ts * 1000) )
     printf("Accelerometer initialization Done ! \n");
 
@@ -266,13 +263,13 @@ void controller_compute_mean_acc(int ts)
         printf("ROBOT acc mean : %g %g %g\n", _meas.acc_mean[0], _meas.acc_mean[1] , _meas.acc_mean[2]);
 }
 
-/*void controller_compute_mean_acc()
+void controller_compute_initial_mean_acc()
 {
   _meas.acc_mean[0] = 6.56983e-05;
   _meas.acc_mean[1] = 0.00781197;
   _meas.acc_mean[2] = 9.81;
   //printf("bias set \n");
-}*/
+}
 
 void controller_print_log(double time)
 {
