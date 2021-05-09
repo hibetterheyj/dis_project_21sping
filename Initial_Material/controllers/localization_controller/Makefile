@@ -67,8 +67,17 @@
 
 ### Do not modify: this includes Webots global Makefile.include
 C_SOURCES = localization_controller.c trajectories.c odometry.c kalman.c
-INCLUDE = -I"C:\msys64\mingw64\include"
-LIBRARIES = -L"C:\msys64\mingw64\lib" -llibgsl
+
+# yujie
+# https://stackoverflow.com/questions/714100/os-detecting-makefile
+UNAME := $(shell uname)
+ifeq ($(UNAME), Linux)
+	LIBRARIES = -lm -lgsl -lgslcblas
+else
+	INCLUDE = -I"C:\msys64\mingw64\include"
+	LIBRARIES = -L"C:\msys64\mingw64\lib" -llibgsl
+endif
+
 null :=
 space := $(null) $(null)
 WEBOTS_HOME_PATH=$(subst $(space),\ ,$(strip $(subst \,/,$(WEBOTS_HOME))))
