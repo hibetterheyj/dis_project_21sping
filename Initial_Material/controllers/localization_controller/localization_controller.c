@@ -50,7 +50,7 @@ static pose_t         _pose, _odo_acc, _odo_enc;
 static pose_t         _pose_origin = {-2.9, 0, 0};
 double last_gps_time_s = 0.0f;
 double last_gps_send_time_s = 0.0f;
-double message[6] ;
+double message[8] ;
 static FILE *fp;
 static gsl_matrix*Cov;
 static gsl_matrix*X;
@@ -161,6 +161,7 @@ void init_devices(int ts) {
   wb_motor_set_position(dev_right_motor, INFINITY);
   wb_motor_set_velocity(dev_left_motor, 0.0);
   wb_motor_set_velocity(dev_right_motor, 0.0);
+  
   
   emitter = wb_robot_get_device("emitter");
   if (emitter==0) printf("miss emitter\n");
@@ -305,5 +306,7 @@ void send_mea() {
   message[3] = _odo_acc.y;
   message[4] = _odo_enc.x;
   message[5] = _odo_enc.y;
-  wb_emitter_send(emitter,message,6*sizeof(double)); 
+  message[6] = gsl_matrix_get(X,0,0);
+  message[7] = gsl_matrix_get(X,1,0);
+  wb_emitter_send(emitter,message,8*sizeof(double)); 
 }
