@@ -18,7 +18,7 @@
 /*GLOBAL*/
 static double _T;
 
-static pose_t _odo_pose_acc, _odo_speed_acc, _odo_pose_enc, _odo_pose_enc_bonus;
+static pose_t _odo_pose_acc, _odo_speed_acc, _odo_pose_enc, _speed_enc;
 //-----------------------------------------------------------------------------------//
 
 /**
@@ -64,7 +64,7 @@ void odo_compute_acc(pose_t* odo, const double acc[3], const double acc_mean[3])
  * @param[in]  Aleft_enc   The delta left encoder
  * @param[in]  Aright_enc  The delta right encoder
  */
-void odo_compute_encoders(pose_t* odo, double Aleft_enc, double Aright_enc)
+void odo_compute_encoders(pose_t* odo, pose_t* enc_speed, double Aleft_enc, double Aright_enc)
 {
 	// Rad to meter
 	Aleft_enc  *= WHEEL_RADIUS;
@@ -81,8 +81,14 @@ void odo_compute_encoders(pose_t* odo, double Aleft_enc, double Aright_enc)
 	double a = _odo_pose_enc.heading;
 
 	double speed_wx = speed * cos(a);
+	
+	_speed_enc.x = speed_wx;
 
 	double speed_wy = speed * sin(a);
+	
+	_speed_enc.y = speed_wy;
+	
+	memcpy(enc_speed, &_speed_enc, sizeof(pose_t));
 
 	// Integration : Euler method
 	_odo_pose_enc.x += speed_wx * _T;
@@ -97,14 +103,8 @@ void odo_compute_encoders(pose_t* odo, double Aleft_enc, double Aright_enc)
     	printf("ODO with wheel encoders : %g %g %g\n", odo->x , odo->y , RAD2DEG(odo->heading) );
 }
 
-/**
- * @brief      Compute the odometry using the encoders. Use the motion model proposed in bonus question
- *
- * @param      odo         The odometry
- * @param[in]  Aleft_enc   The delta left encoder
- * @param[in]  Aright_enc  The delta right encoder
- */
-/**
+
+/*
  * @brief      Reset the odometry to zeros
  *
  * @param[in]  time_step  The time step used in the simulation in miliseconds
@@ -118,7 +118,7 @@ void odo_reset(int time_step)
 
 	memset(&_odo_pose_enc, 0 , sizeof(pose_t));
 
-	memset(&_odo_pose_enc_bonus, 0 , sizeof(pose_t));
+	memset(&_speed_enc, 0 , sizeof(pose_t));
 
 	_T = time_step / 1000.0;
 }

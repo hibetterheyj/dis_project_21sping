@@ -46,14 +46,16 @@ typedef struct
 
 // variables
 static measurement_t  _meas;
-static pose_t         _pose, _odo_acc, _odo_enc;
+static pose_t         _pose, _odo_acc, _odo_enc, _speed_enc;
 static pose_t         _pose_origin = {-2.9, 0, 0};
 double last_gps_time_s = 0.0f;
 double last_gps_send_time_s = 0.0f;
 double message[8] ;
 static FILE *fp;
-static gsl_matrix*Cov;
-static gsl_matrix*X;
+static gsl_matrix*Cov_acc;
+static gsl_matrix*X_acc;
+static gsl_matrix*Cov_enc;
+static gsl_matrix*X_enc;
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -99,7 +101,7 @@ int main()
   //improves acceleration odometry in the beginning
   controller_compute_initial_mean_acc();
   
-  while (wb_robot_step(time_step) != -1)  {
+  while ((wb_robot_step(time_step) != -1)&& wb_robot_get_time()<130)  {
     controller_get_pose();
     controller_get_acc();
     controller_get_encoder();
@@ -110,12 +112,15 @@ int main()
     }
     //compute odometries and kalman filter based localization
     odo_compute_acc(&_odo_acc, _meas.acc, _meas.acc_mean);
-    odo_compute_encoders(&_odo_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
+    odo_compute_encoders(&_odo_enc, &_speed_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
 
-    kalman_compute_acc(X,Cov,(_meas.acc[1]-_meas.acc_mean[1])*cos(_odo_enc.heading),
+    kalman_compute_acc(X_acc,Cov_acc,(_meas.acc[1]-_meas.acc_mean[1])*cos(_odo_enc.heading),
       (_meas.acc[1]-_meas.acc_mean[1])*sin(_odo_enc.heading),_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
-    //printf(" %g \n",gsl_matrix_get(X, 0, 0));
-
+      
+    kalman_compute_enc(X_enc,Cov_enc,_speed_enc.x,
+      _speed_enc.y,_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
+    //printf(" %g \n",gsl_matrix_get(X_enc, 0, 0));
+    //printf("%g\n", wb_robot_get_time());
 
     // send measurements to supervisor
     send_mea();
@@ -134,12 +139,19 @@ int main()
 
 void init_state() //declaration of kalman filter input and output variables
 {
-  Cov = gsl_matrix_calloc(4, 4);
-  gsl_matrix_set(Cov,0,0,0.001);
-  gsl_matrix_set(Cov,1,1,0.001);
-  gsl_matrix_set(Cov,2,2,0.001);
-  gsl_matrix_set(Cov,3,3,0.001);
-  X= gsl_matrix_calloc(4, 1);
+  // states variables for acc based kalman
+  Cov_acc = gsl_matrix_calloc(4, 4);
+  gsl_matrix_set(Cov_acc,0,0,0.001);
+  gsl_matrix_set(Cov_acc,1,1,0.001);
+  gsl_matrix_set(Cov_acc,2,2,0.001);
+  gsl_matrix_set(Cov_acc,3,3,0.001);
+  X_acc= gsl_matrix_calloc(4, 1);
+  
+  // state variables for enc based kalman
+  Cov_enc = gsl_matrix_calloc(2, 2);
+  gsl_matrix_set(Cov_enc,0,0,0.001);
+  gsl_matrix_set(Cov_enc,1,1,0.001);
+  X_enc= gsl_matrix_calloc(2, 1);
 }
 
 void init_devices(int ts) {
@@ -281,7 +293,7 @@ void controller_print_log(double time)
             time, _pose.x, _pose.y , _pose.heading, _meas.gps[0], _meas.gps[1], 
       _meas.gps[2], _meas.acc[0], _meas.acc[1], _meas.acc[2], _meas.right_enc, _meas.left_enc, 
       _odo_acc.x, _odo_acc.y, _odo_acc.heading, _odo_enc.x, _odo_enc.y, _odo_enc.heading,
-      gsl_matrix_get(X,0,0), gsl_matrix_get(X,1,0), gsl_matrix_get(X,2,0), gsl_matrix_get(X,3,0));
+      gsl_matrix_get(X_acc,0,0), gsl_matrix_get(X_acc,1,0), gsl_matrix_get(X_enc,0,0), gsl_matrix_get(X_enc,1,0));
   }
 
 }
@@ -291,7 +303,7 @@ void controller_init_log(const char* filename)
 {
   fp = fopen(filename,"w");
 
-  fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; gps_z; acc_0; acc_1; acc_2; right_enc; left_enc; odo_acc_x; odo_acc_y; odo_acc_heading; odo_enc_x; odo_enc_y; odo_enc_heading; kal_x; kal_y; kal_vx; kal_vy\n");
+  fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; gps_z; acc_0; acc_1; acc_2; right_enc; left_enc; odo_acc_x; odo_acc_y; odo_acc_heading; odo_enc_x; odo_enc_y; odo_enc_heading; acc_kal_x; acc_kal_y; enc_kal_vx; enc_kal_vy\n");
 }
 
 void send_mea() {
@@ -306,7 +318,7 @@ void send_mea() {
   message[3] = _odo_acc.y;
   message[4] = _odo_enc.x;
   message[5] = _odo_enc.y;
-  message[6] = gsl_matrix_get(X,0,0);
-  message[7] = gsl_matrix_get(X,1,0);
+  message[6] = gsl_matrix_get(X_acc,0,0);
+  message[7] = gsl_matrix_get(X_acc,1,0);
   wb_emitter_send(emitter,message,8*sizeof(double)); 
 }
