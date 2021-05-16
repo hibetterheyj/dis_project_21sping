@@ -1,14 +1,3 @@
-/*****************************************************************************/
-/* File:         raynolds2.c                                                 */
-/* Version:      2.0                                                         */
-/* Date:         06-Oct-15                                                   */
-/* Description:  Reynolds flocking with relative positions		     */
-/*                                                                           */
-/* Author: 	 06-Oct-15 by Ali Marjovi				     */
-/* Last revision:12-Oct-15 by Florian Maushart				     */
-/*****************************************************************************/
-
-
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
