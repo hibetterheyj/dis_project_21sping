@@ -53,8 +53,8 @@ int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; /
 
 
 WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
-WbDeviceTag receiver2;		// Handle for the receiver node
-WbDeviceTag emitter2;		// Handle for the emitter node
+WbDeviceTag receiver;		// Handle for the receiver node
+WbDeviceTag emitter;		// Handle for the emitter node
 
 int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1) robot ID
 
@@ -75,8 +75,8 @@ float theta_robots[FLOCK_SIZE];
  */
 static void reset() {
 	wb_robot_init();
-	receiver2 = wb_robot_get_device("receiver");
-	emitter2 = wb_robot_get_device("emitter");
+	receiver = wb_robot_get_device("receiver");
+	emitter = wb_robot_get_device("emitter");
 	
 	//get motors
 	left_motor = wb_robot_get_device("left wheel motor");
@@ -96,7 +96,7 @@ static void reset() {
 	for(i=0;i<NB_SENSORS;i++)
 		wb_distance_sensor_enable(ds[i],64);
 
-	wb_receiver_enable(receiver2,64);
+	wb_receiver_enable(receiver,64);
 
 	//Reading the robot's name. Pay attention to name specification when adding robots to the simulation!
 	sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
@@ -247,7 +247,7 @@ void reynolds_rules() {
 void send_ping(void) {
 	char out[10];
 	strcpy(out,robot_name);  // in the ping message we send the name of the robot.
-	wb_emitter_send(emitter2,out,strlen(out)+1); 
+	wb_emitter_send(emitter,out,strlen(out)+1); 
 }
 
 /*
@@ -261,10 +261,10 @@ void process_received_ping_messages(void) {
 	double range;
 	char *inbuffer;	// Buffer for the receiver node
 	int other_robot_id;
-	while (wb_receiver_get_queue_length(receiver2) > 0) {
-		inbuffer = (char*) wb_receiver_get_data(receiver2);
-		message_direction = wb_receiver_get_emitter_direction(receiver2);
-		message_rssi = wb_receiver_get_signal_strength(receiver2);
+	while (wb_receiver_get_queue_length(receiver) > 0) {
+		inbuffer = (char*) wb_receiver_get_data(receiver);
+		message_direction = wb_receiver_get_emitter_direction(receiver);
+		message_rssi = wb_receiver_get_signal_strength(receiver);
 		double y = message_direction[2];
 		double x = message_direction[1];
 
@@ -287,7 +287,7 @@ void process_received_ping_messages(void) {
 		relative_speed[other_robot_id][0] = relative_speed[other_robot_id][0]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][0]-prev_relative_pos[other_robot_id][0]);
 		relative_speed[other_robot_id][1] = relative_speed[other_robot_id][1]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][1]-prev_relative_pos[other_robot_id][1]);		
 		 
-		wb_receiver_next_packet(receiver2);
+		wb_receiver_next_packet(receiver);
 	}
 }
 
