@@ -70,6 +70,9 @@ char* robot_name;
 
 float theta_robots[FLOCK_SIZE];
 
+//True state from supervisor, just for test
+float true_position[FLOCK_SIZE][3];     		// X, Z, Theta of the current robot (true)
+
 /*
  * Reset the robot's devices and get its ID
  */
@@ -267,11 +270,25 @@ void process_received_ping_messages(void) {
 		message_rssi = wb_receiver_get_signal_strength(receiver);
 		double y = message_direction[2];
 		double x = message_direction[1];
+                      
+                      //get true pos from supervisor
+                      if (inbuffer[0] != 'e'){
+                        // printf("Robot %d \n",inbuffer[0]- '0');
+                       
+                        int i = inbuffer[0]- '0';
+                        sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
+                        wb_receiver_next_packet(receiver);
+                        true_position[i][2] += M_PI/2;
+                        if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
+                        if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
+                        printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
+                        continue;
+                      }
+                       
 
 		theta =	-atan2(y,x);
 		theta = theta + my_position[2]; // find the relative theta;
 		range = sqrt((1/message_rssi));
-		
 
 		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
 		
@@ -343,7 +360,8 @@ int main(){
 		update_self_motion(msl,msr);
 		
 		process_received_ping_messages();
-
+		
+                      
 		speed[robot_id][0] = (1/DELTA_T)*(my_position[0]-prev_my_position[0]);
 		speed[robot_id][1] = (1/DELTA_T)*(my_position[1]-prev_my_position[1]);
     
