@@ -10,7 +10,7 @@
 #include <webots/supervisor.h>
 
 #define VERBOSE_flocking_metric false       // Print metrics of flocking
-#define VERBOSE_formation_metric true       // Print metrics of formation
+#define VERBOSE_formation_metric false       // Print metrics of formation
 
 #define FLOCK_SIZE	5		// Number of robots in flock
 #define TIME_STEP	64		// [ms] Length of time step
@@ -40,6 +40,8 @@ WbDeviceTag emitter;			// Single emitter
 float loc[FLOCK_SIZE][3];		// Location of everybody in the flock
 float loc_prev[FLOCK_SIZE][3];		// Location of everybody in the flock at last time step
 float max_dis = DELTA_T*(MAX_SPEED_WEB*MAX_SPEED*WHEEL_RADIUS/1000); //maximal distance possible per timestep
+int super_id;  //Supervisor's ID
+char* super_name;
 /*
  * Initialize supervisor
  */
@@ -50,11 +52,22 @@ void supervisor_init() {
   if (emitter==0) printf("miss emitter\n");
   if (emitter!=0) printf("emitter works\n");
   
+  super_name=(char*) wb_robot_get_name(); 
+  if (super_name[0] == 'r'){
+    printf("obstacle scenario \n");
+    super_id = 0;
+  }
+  else{
+    printf("crossing scenario \n");
+    sscanf(super_name,"super%d",&super_id);
+    printf("my id is %d \n",super_id);
+  }
   
+
   char rob[7] = "epuck0";
     int i;
     for (i=0;i<FLOCK_SIZE;i++) {
-      sprintf(rob,"epuck%d",i);
+      sprintf(rob,"epuck%d",i+super_id*5);
       robs[i] = wb_supervisor_node_get_from_def(rob);
       robs_trans[i] = wb_supervisor_node_get_field(robs[i],"translation");
       robs_rotation[i] = wb_supervisor_node_get_field(robs[i],"rotation");
@@ -96,7 +109,7 @@ void send_true(){
   for (i=0;i<FLOCK_SIZE;i++) {
     
     // Send it out
-    sprintf(buffer,"%1d#%f#%f#%f",i,loc[i][0],loc[i][1],loc[i][2]);
+    sprintf(buffer,"%1d#%f#%f#%f",i+super_id*5,loc[i][0],loc[i][1],loc[i][2]);
     // printf("Robot %s \n",buffer);
     wb_emitter_send(emitter,buffer,strlen(buffer));
   }
