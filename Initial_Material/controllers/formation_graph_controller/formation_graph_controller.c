@@ -1,5 +1,12 @@
 /*****************************************************************************/
 /* File: formation_graph_controller.c
+TODO:
+- set a goal position for the controller with threshold
+- add obstacle avoidance from the code
+- extend to five robot!
+- use relative pose instead of relative pose
+- init with supervisor (add with randomization)
+- control with odometry information
 /*****************************************************************************/
 
 /**************************************************/
@@ -59,7 +66,7 @@ float init_x[FLOCK_SIZE] = {-2.9, -2.9};
 float init_y[FLOCK_SIZE] = {0.0, 0.1};
 
 /* TUNING PARAMETERS */
-float DELTA_T=0.064;	// Timestep (seconds)
+int DELTA_T=64;	// [ms] Length of time step
 float THRESHOLD=0.05;	// Convergence threshold
 int Interconn[16] = {-5,-15,-20,6,4,6,3,5,4,4,6,-18,-15,-5,5,3};
 
@@ -86,6 +93,7 @@ float relative_pos[FLOCK_SIZE][3];	// relative X, Z, Theta of all robots
 float prev_relative_pos[FLOCK_SIZE][3];	// Previous relative  X, Z, Theta values
 float my_position[3];     		// X, Z, Theta of the current robot
 float prev_my_position[3];  		// X, Z, Theta of the current robot in the previous time step
+float true_position[FLOCK_SIZE][3]; // true position for algorithm test
 float speed[FLOCK_SIZE][2];		// Speeds calculated with graph-based formation
 float relative_speed[FLOCK_SIZE][2];	// Speeds calculated with graph-based formation
 int initialized[FLOCK_SIZE];		// != 0 if initial positions have been received
@@ -119,6 +127,19 @@ void limit(int *number, int limit) {
 		*number = limit;
 	if (*number < -limit)
 		*number = -limit;
+}
+
+/* Keep given int number within interval {-limit, limit} */
+float limit_angle(float angle) {
+	while(angle > 180 || angle < -180){
+		if (angle > 180){
+			angle -= 360;
+		}
+		else if (angle < -180){
+			angle += 360;
+		}
+	}
+	return angle;
 }
 
 /**************************************************/
@@ -230,28 +251,27 @@ void compute_relative_pos(void) {
 		relative_pos[other_robot_id][0] = range*cos(theta);  // relative x pos
 		relative_pos[other_robot_id][1] = -1.0 * range*sin(theta);   // relative y pos
 
-		printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, my theta %g\n",robot_name,other_robot_id,relative_pos[other_robot_id][0],relative_pos[other_robot_id][1],-atan2(y,x)*180.0/3.141592,my_position[2]*180.0/3.141592);
+		printf("My robot %s relative to robot %d, x: %g, y: %g, theta %g, my theta %g\n",robot_name, other_robot_id, relative_pos[other_robot_id][0], relative_pos[other_robot_id][1], -atan2(y,x)*180.0/3.141592, limit_angle(my_position[2]*180.0/3.141592));
 
 		relative_speed[other_robot_id][0] = relative_speed[other_robot_id][0]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][0]-prev_relative_pos[other_robot_id][0]);
 		relative_speed[other_robot_id][1] = relative_speed[other_robot_id][1]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][1]-prev_relative_pos[other_robot_id][1]);
 
+		// TODO: compare performace with global true position
+		// get true pos from supervisor
+		if (inbuffer[0] != 'e'){
+		// printf("Robot %d \n",inbuffer[0]- '0');
+		int i = inbuffer[0]- '0';
+		sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
+		wb_receiver_next_packet(receiver);
+		true_position[i][2] += M_PI/2;
+		if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
+		if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
+		printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
+		continue;
+		}
+
 		wb_receiver_next_packet(receiver);
 	}
-
-	// TODO: compare performace with global true position
-	//get true pos from supervisor
-	// if (inbuffer[0] != 'e'){
-	// // printf("Robot %d \n",inbuffer[0]- '0');
-
-	// int i = inbuffer[0]- '0';
-	// sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
-	// wb_receiver_next_packet(receiver);
-	// true_position[i][2] += M_PI/2;
-	// if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
-	// if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
-	// printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
-	// continue;
-	// }
 }
 
 /* Compute laplacian functions */
@@ -293,10 +313,29 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	// init with speed every time with zero
 	speed[robot_id][0] = 0; speed[robot_id][1] = 0;
 	for(int j = 0; j < FLOCK_SIZE; j++){
-		speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[j] - bias_x[j]);
-		speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[j] - bias_y[j]);
-		// printf ("After computing (%d, %d) -> current speed of agent %d (x, y): (%f, %f) \n",i, j, i, speed[i][0], speed[i][1]);
+		// gsl_matrix_get (laplacian, robot_id, j) * (my_position[j] - bias_x[j]) 后面错了！！！
+		// 出现在my_position
+		// laplacian 矩阵只有与当前有连接的即可
+		if (j == robot_id) {
+			// speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[0] - bias_x[j]);
+			// speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[1] - bias_y[j]);
+			speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][0] - bias_x[j]);
+			speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][1] - bias_y[j]);
+		}
+		else {
+			if (gsl_matrix_get (laplacian, robot_id, j) == 0){
+				continue;
+			}
+			else {// connect with current vertex
+				// printf("Relative robot %d pos-(%f, %f)\n",j, relative_pos[j][0], relative_pos[j][1]);
+				// speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[0]+relative_pos[j][0] - bias_x[j]);
+				// speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[1]+relative_pos[j][1] - bias_y[j]);
+				speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][0] - bias_x[j]);
+				speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][1] - bias_y[j]);
+			}
+		}
 	}
+	printf ("Current speed of agent %d (x, y): (%f, %f) \n", robot_id, speed[robot_id][0], speed[robot_id][1]);
 
 	// Compute speed in global coordinate
 	float x = speed[robot_id][0]*cosf(my_position[2]) + speed[robot_id][1]*sinf(my_position[2]); // x in robot coordinates
@@ -316,8 +355,8 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	// Convert to wheel speeds!
 	*msl = (u - AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u + AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
-	limit(msl,MAX_SPEED);
-	limit(msr,MAX_SPEED);
+	limit(msl, MAX_SPEED);
+	limit(msr, MAX_SPEED);
 }
 
 /* Obstacle avoidance */
@@ -326,13 +365,12 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 /* MAIN */
 /*************************/
 int main(){
-
                 // Incidence Matrix V (FLOCK_SIZE) xE
                 gsl_matrix * incidence  = gsl_matrix_calloc (FLOCK_SIZE, EDGE_SIZE);
                 // Weight Matrix E x E
                 gsl_matrix * weight  = gsl_matrix_calloc (EDGE_SIZE, EDGE_SIZE);
                 // Laplacian Matrix VxV I * W * I^T
-                gsl_matrix * laplacian  = gsl_matrix_calloc (FLOCK_SIZE, FLOCK_SIZE);
+                gsl_matrix * laplacian  = gsl_matrix_alloc (FLOCK_SIZE, FLOCK_SIZE);
 	// init laplacian for the robot
 	// In Figure 7, we have linked two vehicles using the above
 	// decentralized law with the incidence matrix I = [1, −1]T
@@ -342,41 +380,49 @@ int main(){
 	gsl_matrix_set(incidence, 1, 0, -1.0);
 	gsl_matrix_set_identity(weight);
 	compute_laplacian(incidence, weight, laplacian);
+	for (int i = 0; i <2; i++)
+                  for (int j = 0; j < 2; j++)
+                      printf ("m2(%d,%d) = %g\n", i, j,
+                              gsl_matrix_get (laplacian, i, j));
 
 	int msl=0,msr=0;                      // motor speed left and right
 	/*Webots 2018b*/
 	float msl_w, msr_w;
 	/*Webots 2018b*/
-	float new_leader_range, new_leader_bearing, new_leader_orientation; // received leader range and bearing
+	//float new_leader_range, new_leader_bearing, new_leader_orientation; // received leader range and bearing
 	int distances[NB_SENSORS];        // array keeping the distance sensor readings
-	float *rbbuffer;                  // buffer for the range and bearing
-	int i,initialized;
+	// float *rbbuffer;                  // buffer for the range and bearing
+	// int i,initialized;
 
 	reset();                          // Initialization
-	if (INIT_TYPE_LOCAL){
-		initial_pos_local(); // Initializing the robot's position from local settings
-	}
-	else{
-		initial_pos_super(); // Initializing the robot's position from supervisor
-	}
+	//if (INIT_TYPE_LOCAL)
+	initial_pos_local(); // Initializing the robot's position from local settings
+	//initial_pos_super(); // Initializing the robot's position from supervisor
 
-	for(;;){
+	//for(;;){
+		// TODO: setting final goal with threshold!
+		int cnt = 0;
+		while (true) {
+		printf("#####\n");
+		printf("##### %d-step for robot %d\n", cnt, robot_id);
+
 		/* I. Obstacle avoidance */
-		int sensor_nb;
-		int bmsl = 0;
-		int bmsr = 0;
-		for(sensor_nb=0;sensor_nb<NB_SENSORS;sensor_nb++){  // read sensor values and calculate motor speeds
-		  distances[sensor_nb]=wb_distance_sensor_get_value(ds[sensor_nb]);
-		  /* Weighted sum of distance sensor values for Braitenburg vehicle */
-		  bmsr += distances[sensor_nb] * Interconn[sensor_nb];
-		  bmsl += distances[sensor_nb] * Interconn[sensor_nb + NB_SENSORS];
-		}
+		// TODO: test Braitenburg
+		// int sensor_nb;
+		// int bmsl = 0;
+		// int bmsr = 0;
+		// for(sensor_nb=0;sensor_nb<NB_SENSORS;sensor_nb++){  // read sensor values and calculate motor speeds
+		  // distances[sensor_nb]=wb_distance_sensor_get_value(ds[sensor_nb]);
+		  // /* Weighted sum of distance sensor values for Braitenburg vehicle */
+		  // bmsr += distances[sensor_nb] * Interconn[sensor_nb];
+		  // bmsl += distances[sensor_nb] * Interconn[sensor_nb + NB_SENSORS];
+		// }
 
-		// TODO: need test!!!
-		bmsl /= 400; bmsr /= 400;        // Normalizing speeds
-		// Adapt Braitenberg values (empirical tests)
-		bmsl/=MIN_SENS; bmsr/=MIN_SENS;
-		bmsl+=66; bmsr+=72;
+		//// TODO: need test!!!
+		// bmsl /= 400; bmsr /= 400;        // Normalizing speeds
+		//// Adapt Braitenberg values (empirical tests)
+		// bmsl/=MIN_SENS; bmsr/=MIN_SENS;
+		// bmsl+=66; bmsr+=72;
 
 		/* II. Udpate position from receiver */
 		send_ping();  // sending a ping to other robot
@@ -394,9 +440,14 @@ int main(){
 
 		// III. Update with graph-based control
 		// update_laplacian(); // update with range and bearing position
-		compute_wheel_speeds(0, 0, &msl, &msr, laplacian);
-		msl += bmsl;
-		msr += bmsr;
+		if (cnt != 0){
+			compute_wheel_speeds(0, 0, &msl, &msr, laplacian);
+			// printf("Speed computed!\n");
+		}
+
+		// TODO: test Braitenburg
+		// msl += bmsl;
+		// msr += bmsr;
 
 
 		/*Webots 2018b*/
@@ -407,6 +458,7 @@ int main(){
 		wb_motor_set_velocity(right_motor, msr_w);
 		//wb_differential_wheels_set_speed(msl,msr);
 		/*Webots 2018b*/
-		wb_robot_step(64);               // Executing the simulation for 64ms
+		wb_robot_step(DELTA_T);               // Executing the simulation for 64ms
+		cnt++;
 	}
 }
