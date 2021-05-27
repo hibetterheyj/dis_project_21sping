@@ -87,7 +87,7 @@ float goal_pos[2];
 float err[2];
 float prev_err[2];
 float integrator[2];
-float k_p = 1.0;
+float k_p = 0.1;
 float k_I = 1.0;
 // initial position
 float init_x[FLOCK_SIZE] = {-2.9, -2.9};
@@ -148,11 +148,22 @@ void send_ping(void) {
 }
 
 /* Keep given int number within interval {-limit, limit} */
-void limit(int *number, int limit) {
-	if (*number > limit)
-		*number = limit;
-	if (*number < -limit)
-		*number = -limit;
+void limit(int *number_1,int *number_2, int limit) {
+          int speed_1 = *number_1; int speed_2 = *number_2;
+	if (abs(speed_1) > abs(speed_2)){
+              	if (abs(speed_1)>limit){
+            		speed_2 /= speed_1/limit;
+            		speed_1 = limit;
+            	}
+          	}
+	else{
+              	if (abs(speed_2)>limit){
+            		speed_1 /= speed_2/limit;
+            		speed_2 = limit;
+            	}
+          	}
+          	*number_1 = speed_1;
+          	*number_2 = speed_2;
 }
 
 /* Keep given int number within interval {-limit, limit} */
@@ -400,6 +411,8 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	printf ("X-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][0], goal_speed[0]);
 	printf ("Y-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][1], goal_speed[1]);
 	speed[robot_id][0] += goal_speed[0]; speed[robot_id][1] += goal_speed[1];
+	speed[robot_id][1] = -speed[robot_id][1];
+	// printf ("speed and angle is: (%f, %f) %f\n", speed[robot_id][0], speed[robot_id][1],true_position[robot_id][2]);
 	//printf ("Current speed of agent %d (x, y): (%f, %f) \n", robot_id, speed[robot_id][0], speed[robot_id][1]);
 
 	// Compute speed in global coordinate
@@ -408,7 +421,9 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	// float y = -speed[robot_id][0]*sinf(my_position[2]) + speed[robot_id][1]*cosf(my_position[2]); // y in robot coordinates
 	float x = speed[robot_id][0]*cosf(true_position[robot_id][2]) + speed[robot_id][1]*sinf(true_position[robot_id][2]); // x in robot coordinates
 	float y = -speed[robot_id][0]*sinf(true_position[robot_id][2]) + speed[robot_id][1]*cosf(true_position[robot_id][2]); // y in robot coordinates
-
+	// printf ("x and y is: (%f, %f) \n", x, y);
+	
+            
 	float Ku = 0.2;   // Forward control coefficient
 	float Kw = 0.5;  // Rotational control coefficient
 	float range = sqrtf(x*x + y*y);	  // Distance to the wanted position
@@ -419,12 +434,15 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	float u = Ku*range*cosf(bearing);
 	// Compute rotational control
 	float w = Kw*bearing;
-
+            // printf ("%f, %f \n",u,w);
 	// Convert to wheel speeds!
 	*msl = (u - AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u + AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
-	limit(msl, MAX_SPEED);
-	limit(msr, MAX_SPEED);
+	// printf ("%d, %d \n",*msl, *msl);
+	// limit(msl, MAX_SPEED);
+	// limit(msr, MAX_SPEED);
+	limit(msl,msr, MAX_SPEED);
+	// printf ("range and bearing is: (%f, %f) \n",range, bearing);
 	//printf ("Current speed (msl, msr) of agent %d: (%d, %d) \n", robot_id, msl, msr);
 }
 
