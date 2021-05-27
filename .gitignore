@@ -1,3 +1,4 @@
-Initial_Material/worlds/
+#Initial_Material/worlds/
+*.wbproj
 build/
 misc/

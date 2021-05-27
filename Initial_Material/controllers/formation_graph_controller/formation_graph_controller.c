@@ -304,7 +304,7 @@ void compute_relative_pos(void) {
 			true_position[i][2] += M_PI/2;
 			if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
 			if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
-			printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
+			printf("True position: Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
 			continue;
 		}
 		wb_receiver_next_packet(receiver);
@@ -356,9 +356,8 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	// init with speed every time with zero
 	speed[robot_id][0] = 0; speed[robot_id][1] = 0;
 	for(int j = 0; j < FLOCK_SIZE; j++){
-		// gsl_matrix_get (laplacian, robot_id, j) * (my_position[j] - bias_x[j]) 后面错了！！！
-		// 出现在my_position
-		// laplacian 矩阵只有与当前有连接的即可
+		// TODO: gsl_matrix_get (laplacian, robot_id, j) * (my_position[j] - bias_x[j]) bugs！！！
+		// only need to show available connection
 		if (j == robot_id) {
 			// speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[0] - bias_x[j]);
 			// speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[1] - bias_y[j]);
@@ -420,68 +419,6 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 }
 
 /*************************/
-/* Sensor functions */
-/*************************/
-// void controller_get_acc()
-// {
-//   // To Do : Call the function to get the accelerometer measurements. Uncomment and complete the following line. Note : Use dev_acc
-//   const double * acc_values = wb_accelerometer_get_values(dev_acc);
-
-//   // To Do : Copy the acc_values into the measurment structure (use memcpy)
-//   memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
-
-//   if(VERBOSE_ACC)
-//     printf("ROBOT acc : %g %g %g\n", _meas.acc[0], _meas.acc[1] , _meas.acc[2]);
-// }
-
-// void controller_get_encoder()
-// {
-//   // Store previous value of the left encoder
-//   _meas.prev_left_enc = _meas.left_enc;
-
-//   _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
-
-//   // Store previous value of the right encoder
-//   _meas.prev_right_enc = _meas.right_enc;
-
-//   _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
-
-//   if(VERBOSE_ENC)
-//     printf("ROBOT enc : %g %g\n", _meas.left_enc, _meas.right_enc);
-// }
-
-// void controller_compute_mean_acc(int ts)
-// {
-//   static int count = 0;
-
-//   count++;
-
-//   if( count > 20 ) // Remove the effects of strong acceleration at the begining
-//   {
-//     for(int i = 0; i < 3; i++)
-//         _meas.acc_mean[i] = (_meas.acc_mean[i] * (count - 1) + _meas.acc[i]) / (double) count;
-//   }
-//   else //reset mean values
-//   {
-//     for(int i = 0; i < 3; i++)
-//         _meas.acc_mean[i] = 0.0;
-//   }
-//   if( count == (int) (TIME_INIT_ACC / (double) ts * 1000) )
-//     printf("Accelerometer initialization Done ! \n");
-
-//   if(VERBOSE_ACC_MEAN)
-//         printf("ROBOT acc mean : %g %g %g\n", _meas.acc_mean[0], _meas.acc_mean[1] , _meas.acc_mean[2]);
-// }
-
-// void controller_compute_initial_mean_acc()
-// {
-//   _meas.acc_mean[0] = 6.56983e-05;
-//   _meas.acc_mean[1] = 0.00781197;
-//   _meas.acc_mean[2] = 9.81;
-//   //printf("bias set \n");
-// }
-
-/*************************/
 /* MAIN */
 /*************************/
 int main(){
@@ -528,7 +465,6 @@ int main(){
 	controller_compute_initial_mean_acc();
 
 	//for(;;){
-		// TODO: setting final goal with threshold!
 	int cnt = 0;
 	while (true) {
 		printf("#####\n");
@@ -536,34 +472,31 @@ int main(){
 
 		/* I. Obstacle avoidance */
 		// TODO: test Braitenburg
-		int sensor_nb;
-		int bmsl = 0;
-		int bmsr = 0;
-		for(sensor_nb=0;sensor_nb<NB_SENSORS;sensor_nb++){  // read sensor values and calculate motor speeds
-		  distances[sensor_nb]=wb_distance_sensor_get_value(ds[sensor_nb]);
-		  /* Weighted sum of distance sensor values for Braitenburg vehicle */
-		  bmsr += distances[sensor_nb] * Interconn[sensor_nb];
-		  bmsl += distances[sensor_nb] * Interconn[sensor_nb + NB_SENSORS];
-		}
+		// int sensor_nb;
+		// int bmsl = 0;
+		// int bmsr = 0;
+		// for(sensor_nb=0;sensor_nb<NB_SENSORS;sensor_nb++){  // read sensor values and calculate motor speeds
+		  // distances[sensor_nb]=wb_distance_sensor_get_value(ds[sensor_nb]);
+		  // /* Weighted sum of distance sensor values for Braitenburg vehicle */
+		  // bmsr += distances[sensor_nb] * Interconn[sensor_nb];
+		  // bmsl += distances[sensor_nb] * Interconn[sensor_nb + NB_SENSORS];
+		// }
 
-		//// TODO: need test!!!
 		// bmsl /= 400; bmsr /= 400;        // Normalizing speeds
-		//// Adapt Braitenberg values (empirical tests)
-		bmsl/=MIN_SENS; bmsr/=MIN_SENS;
-		bmsl+=66; bmsr+=72;
+		/* Adapt Braitenberg values (empirical tests) */
+		// bmsl/=MIN_SENS; bmsr/=MIN_SENS;
+		// bmsl+=66; bmsr+=72;
 
 		/* II. Udpate position from receiver */
 		send_ping();  // sending a ping to other robot
 
 		// Compute self position & speed
 		// 1. update self's position from kalman filter/ encoder info
-		// from sensor
-		// controller_get_pose(); // gps
-		// controller_get_acc(); //accelarator
+		// TODO: cannot receive correct data from sensors
 		controller_get_encoder(); // encoder
 		//compute odometries and kalman filter based localization
 		odo_compute_encoders(&_odo_enc, &_speed_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
-    	
+
 		// from local calculation !!! large error
 		prev_my_position[0] = my_position[0];
 		prev_my_position[1] = my_position[1];
@@ -581,9 +514,8 @@ int main(){
 			// printf("Speed computed!\n");
 		}
 
-		// TODO: test Braitenburg
-		msl += 0.1 * bmsl;
-		msr += 0.1 * bmsr;
+		// msl += 0.1 * bmsl;
+		// msr += 0.1 * bmsr;
 
 
 		/*Webots 2018b*/
