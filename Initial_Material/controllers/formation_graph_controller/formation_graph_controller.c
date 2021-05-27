@@ -122,6 +122,9 @@ char* robot_name;
 static measurement_t  _meas;
 static pose_t _odo_enc, _speed_enc; // _pose, _odo_acc,
 
+// only for test, true localization from supervisor
+float true_position[FLOCK_SIZE][3]; 
+
 /**************************************************/
 /* UTILITY FUNCTIONS */
 /**************************************************/
@@ -274,7 +277,21 @@ void compute_relative_pos(void) {
 		message_rssi = wb_receiver_get_signal_strength(receiver);
 		double y = message_direction[2];
 		double x = message_direction[1];
-
+		
+		//get true pos from supervisor
+                      if (inbuffer[0] != 'e'){
+                        // printf("Robot %d \n",inbuffer[0]- '0');
+                       
+                        int i = inbuffer[0]- '0';
+                        sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
+                        wb_receiver_next_packet(receiver);
+                        true_position[i][2] += M_PI/2;
+                        if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
+                        if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
+                        printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
+                        continue;
+                      }
+            
 		theta =	-atan2(y,x);
 		theta = theta + my_position[2]; // find the relative theta;
 		range = sqrt((1/message_rssi));
