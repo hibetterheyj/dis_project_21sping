@@ -42,13 +42,20 @@ void supervisor_init() {
  * Receive estimator information
  */
 void receive_inf(){
-  if(wb_receiver_get_queue_length(receiver)>0){
+  while(wb_receiver_get_queue_length(receiver)>0){
     const char *message = wb_receiver_get_data(receiver);
     float *p = (float* )message;
     int i;
     for (i=0;i<8;i++){
       pos_est[i] = p[i];
     }
+    // double time_now_s = wb_robot_get_time();
+    // printf("message: %d \n",message[8]);
+    // printf("recevier time: %g \n",time_now_s);
+    // printf("est: %g %g \n",pos_est[0],pos_est[1]);
+    // printf("est: %g %g \n",pos_est[2],pos_est[3]);
+    // printf("est: %g %g \n",pos_est[4],pos_est[5]);
+    // printf("est: %g %g \n",pos_est[6],pos_est[7]);
     wb_receiver_next_packet(receiver);
   }
 }
