@@ -12,7 +12,7 @@
 #define WHEEL_RADIUS 	0.020		// Radius of the wheel in meter
 
 /*VERBOSE_FLAGS*/
-#define VERBOSE_ODO_ENC true     			// Print odometry values computed with wheel encoders
+#define VERBOSE_ODO_ENC false     			// Print odometry values computed with wheel encoders
 #define VERBOSE_ODO_ACC false    			// Print odometry values computed with accelerometer
 //-----------------------------------------------------------------------------------//
 /*GLOBAL*/

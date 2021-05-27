@@ -12,7 +12,7 @@
 #define VERBOSE_flocking_metric false       // Print metrics of flocking
 #define VERBOSE_formation_metric false       // Print metrics of formation
 
-#define FLOCK_SIZE	5		// Number of robots in flock
+#define FLOCK_SIZE	2		// Number of robots in flock
 #define TIME_STEP	64		// [ms] Length of time step
 
 //Robot speed parameters

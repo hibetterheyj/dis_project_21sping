@@ -4,7 +4,7 @@ TODO:
 - set a goal position for the controller with threshold
 - add obstacle avoidance from the code
 - extend to five robot!
-- use relative pose instead of relative pose
+- use relative pose instead of true pose
 - init with supervisor (add with randomization)
 - control with odometry information
 /*****************************************************************************/
@@ -123,7 +123,7 @@ static measurement_t  _meas;
 static pose_t _odo_enc, _speed_enc; // _pose, _odo_acc,
 
 // only for test, true localization from supervisor
-float true_position[FLOCK_SIZE][3]; 
+// float true_position[FLOCK_SIZE][3];
 
 /**************************************************/
 /* UTILITY FUNCTIONS */
@@ -228,7 +228,7 @@ void initial_pos_local(void){
 		goal_pos[0] = my_position[0] + goal_distance[0];
 		goal_pos[1] = my_position[1] + goal_distance[1];
 		err[0] = goal_pos[0] - my_position[0];
-		err[1] = goal_pos[1] - my_position[1];
+		err[1] = -(goal_pos[1] - my_position[1]); // TODO: y is different from x axis
 		prev_err[0] = err[0]; prev_err[1] = err[1];
 		integrator[0] = 0; integrator[1] = 0;
 		initialized[robot_id] = 1;  // initialized = true
@@ -277,21 +277,23 @@ void compute_relative_pos(void) {
 		message_rssi = wb_receiver_get_signal_strength(receiver);
 		double y = message_direction[2];
 		double x = message_direction[1];
-		
-		//get true pos from supervisor
-                      if (inbuffer[0] != 'e'){
-                        // printf("Robot %d \n",inbuffer[0]- '0');
-                       
-                        int i = inbuffer[0]- '0';
-                        sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
-                        wb_receiver_next_packet(receiver);
-                        true_position[i][2] += M_PI/2;
-                        if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
-                        if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
-                        printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
-                        continue;
-                      }
-            
+
+		// jianhao: get true pos from supervisor
+		//printf("message received: %s\n", inbuffer[0] != 'e' ? "true":"false");
+		//printf("%s\n", inbuffer);
+		if (inbuffer[0] != 'e'){
+			// printf("Robot %d \n",inbuffer[0]- '0');
+
+			int i = inbuffer[0]- '0';
+			sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
+			wb_receiver_next_packet(receiver);
+			true_position[i][2] += M_PI/2;
+			if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
+			if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
+			//printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
+			continue;
+		}
+
 		theta =	-atan2(y,x);
 		theta = theta + my_position[2]; // find the relative theta;
 		range = sqrt((1/message_rssi));
@@ -309,21 +311,7 @@ void compute_relative_pos(void) {
 
 		relative_speed[other_robot_id][0] = relative_speed[other_robot_id][0]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][0]-prev_relative_pos[other_robot_id][0]);
 		relative_speed[other_robot_id][1] = relative_speed[other_robot_id][1]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][1]-prev_relative_pos[other_robot_id][1]);
-                                  //printf("get true pos from relative estimation");
-		// TODO: compare performace with global true position
-		// get true pos from supervisor
-		if (inbuffer[0] != 'e'){
-			//printf("get true pos from supervisor");
-			// printf("Robot %d \n",inbuffer[0]- '0');
-			int i = inbuffer[0]- '0';
-			sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
-			wb_receiver_next_packet(receiver);
-			true_position[i][2] += M_PI/2;
-			if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
-			if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
-			printf("True position: Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
-			continue;
-		}
+
 		wb_receiver_next_packet(receiver);
 	}
 }
@@ -361,9 +349,11 @@ void update_self_motion_naive(int msl, int msr) {
 
 	// new: update errors
 	prev_err[0] = err[0]; prev_err[1] = err[1];
-	err[0] = goal_pos[0] - my_position[0];
-	err[1] = goal_pos[1] - my_position[1];
-	printf("(%f = %f - %f)\n", err[0], goal_pos[0], my_position[0]);
+	// err[0] = goal_pos[0] - my_position[0];
+	// err[1] = goal_pos[1] - my_position[1];
+	err[0] = goal_pos[0] - true_position[robot_id][0];
+	err[1] = -(goal_pos[1] - true_position[robot_id][1]);  // TODO: y is different from x axis
+	printf("(%f = %f - %f)\n", err[0], goal_pos[0], true_position[robot_id][0]);
 }
 
 /* Compute wheel speeds arcording to graph */
@@ -401,11 +391,11 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	//prev_err[0]; prev_err[1]; err[0]; err[1];
 	float Ts = DELTA_T/1000; // (s)
 	integrator[0] = integrator[0] + (Ts/2) * (err[0] + prev_err[0]);
-	integrator[1] = integrator[1] + (Ts/2) * (err[0] + prev_err[1]);
+	integrator[1] = -(integrator[1] + (Ts/2) * (err[0] + prev_err[1])); // TODO: different from y axis
 	// goal_speed[0] = k_p * err[0] + k_i * integrator[0];
 	// goal_speed[1] = k_p * err[1] + k_i * integrator[1];
 	goal_speed[0] = k_p * err[0];
-	goal_speed[1] = k_p * err[1];
+	goal_speed[1] = -k_p * err[1]; // TODO: different from y axis
 	printf("Error (%f, %f)\n", err[0], err[1]);
 	printf ("X-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][0], goal_speed[0]);
 	printf ("Y-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][1], goal_speed[1]);
@@ -413,8 +403,11 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	//printf ("Current speed of agent %d (x, y): (%f, %f) \n", robot_id, speed[robot_id][0], speed[robot_id][1]);
 
 	// Compute speed in global coordinate
-	float x = speed[robot_id][0]*cosf(my_position[2]) + speed[robot_id][1]*sinf(my_position[2]); // x in robot coordinates
-	float y = -speed[robot_id][0]*sinf(my_position[2]) + speed[robot_id][1]*cosf(my_position[2]); // z in robot coordinates
+	// use relative positioning
+	// float x = speed[robot_id][0]*cosf(my_position[2]) + speed[robot_id][1]*sinf(my_position[2]); // x in robot coordinates
+	// float y = -speed[robot_id][0]*sinf(my_position[2]) + speed[robot_id][1]*cosf(my_position[2]); // y in robot coordinates
+	float x = speed[robot_id][0]*cosf(true_position[robot_id][2]) + speed[robot_id][1]*sinf(true_position[robot_id][2]); // x in robot coordinates
+	float y = -speed[robot_id][0]*sinf(true_position[robot_id][2]) + speed[robot_id][1]*cosf(true_position[robot_id][2]); // y in robot coordinates
 
 	float Ku = 0.2;   // Forward control coefficient
 	float Kw = 0.5;  // Rotational control coefficient
@@ -432,7 +425,7 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	*msr = (u + AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	limit(msl, MAX_SPEED);
 	limit(msr, MAX_SPEED);
-	//printf ("Current speed (msl, msr) of agent %d: (%f, %f) \n", msl, msr, robot_id);
+	//printf ("Current speed (msl, msr) of agent %d: (%d, %d) \n", robot_id, msl, msr);
 }
 
 /*************************/
