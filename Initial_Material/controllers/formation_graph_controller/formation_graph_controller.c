@@ -24,6 +24,8 @@ TODO:
 /*Webots 2018b*/
 #include <webots/differential_wheels.h>
 #include <webots/distance_sensor.h>
+#include <webots/position_sensor.h>
+#include <webots/accelerometer.h>
 #include <webots/emitter.h>
 #include <webots/receiver.h>
 
@@ -34,10 +36,10 @@ TODO:
 
 /* custom library */
 // need to compile as library files and link to executables
-// #include "../localization_library_test/localization.h"
-// #include "../localization_library_test/trajectories.h"
-// #include "../localization_library_test/odometry.h"
-// #include "../localization_library_test/kalman.h"
+#include "../localization_library_test/localization.h"
+#include "../localization_library_test/trajectories.h"
+#include "../localization_library_test/odometry.h"
+#include "../localization_library_test/kalman.h"
 
 /**************************************************/
 /* PARAMETERS */
@@ -56,11 +58,37 @@ TODO:
 #define MAX_SPEED         800     // Maximum speed
 #define MAX_SPEED_WEB      6.28    // Maximum speed webots
 #define INIT_TYPE_LOCAL true // if true, init with custom setup; else (false), init with supervisor
+// sensor for localization
+#define TIME_INIT_ACC 3         // Time in second
+#define VERBOSE_ACC false       // Print accelerometer values
+#define VERBOSE_ACC_MEAN false  // Print accelerometer mean values
+#define VERBOSE_ENC false       // Print encoder values
+
+/**************************************************/
+/* WEBOTS INITIALIZATION */
+/**************************************************/
+/*Webots 2018b*/
+WbDeviceTag left_motor; //handler for left wheel of the robot
+WbDeviceTag right_motor; //handler for the right wheel of the robot
+/*Webots 2018b*/
+WbDeviceTag ds[NB_SENSORS];           // Handle for the infrared distance sensors
+WbDeviceTag receiver;		// Handle for the receiver node
+WbDeviceTag emitter;		// Handle for the emitter node
+// sensor for localization
+WbDeviceTag dev_left_encoder;
+WbDeviceTag dev_right_encoder;
+WbDeviceTag dev_acc;
+
 // init and goal position
 // from -1.9 -> 2.1 = 4
-#define GOAL_X  4.0  // X-coordinate of goal position
-#define GOAL_Y  0.0  // Y-coordinate of goal position
-float error[2] = {GOAL_X, GOAL_Y}; // Error dynamics
+float goal_distance[2] = {4.0, 0.0};
+float goal_pos[2];
+// pi(d) control towards goal
+float err[2];
+float prev_err[2];
+float integrator[2];
+float k_p = 1.0;
+float k_I = 1.0;
 // initial position
 float init_x[FLOCK_SIZE] = {-2.9, -2.9};
 float init_y[FLOCK_SIZE] = {0.0, 0.1};
@@ -75,17 +103,6 @@ float bias_x[FLOCK_SIZE] = {0, 0};
 float bias_y[FLOCK_SIZE] = {0.0, 0.1};
 
 /**************************************************/
-/* WEBOTS INITIALIZATION */
-/**************************************************/
-/*Webots 2018b*/
-WbDeviceTag left_motor; //handler for left wheel of the robot
-WbDeviceTag right_motor; //handler for the right wheel of the robot
-/*Webots 2018b*/
-WbDeviceTag ds[NB_SENSORS];           // Handle for the infrared distance sensors
-WbDeviceTag receiver;		// Handle for the receiver node
-WbDeviceTag emitter;		// Handle for the emitter node
-
-/**************************************************/
 /* ROBOT VARIABLES INITIALIZATION */
 /**************************************************/
 int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1) robot ID
@@ -94,10 +111,16 @@ float prev_relative_pos[FLOCK_SIZE][3];	// Previous relative  X, Z, Theta values
 float my_position[3];     		// X, Z, Theta of the current robot
 float prev_my_position[3];  		// X, Z, Theta of the current robot in the previous time step
 float true_position[FLOCK_SIZE][3]; // true position for algorithm test
+// TODO: no need to calculate other robot's speed!
 float speed[FLOCK_SIZE][2];		// Speeds calculated with graph-based formation
+float goal_speed[2];
 float relative_speed[FLOCK_SIZE][2];	// Speeds calculated with graph-based formation
 int initialized[FLOCK_SIZE];		// != 0 if initial positions have been received
 char* robot_name;
+
+// localization
+static measurement_t  _meas;
+static pose_t _odo_enc, _speed_enc; // _pose, _odo_acc,
 
 /**************************************************/
 /* UTILITY FUNCTIONS */
@@ -146,14 +169,23 @@ float limit_angle(float angle) {
 /* ROBOT-RELATED FUNCTIONS */
 /**************************************************/
 /* Initialization sensor, motor, receiver, etc. */
-void reset(){
-	wb_robot_init();
-	receiver = wb_robot_get_device("receiver");
-	emitter = wb_robot_get_device("emitter");
+void init_device(int time_step){
+	// motor
 	left_motor = wb_robot_get_device("left wheel motor");
 	right_motor = wb_robot_get_device("right wheel motor");
 	wb_motor_set_position(left_motor, INFINITY);
 	wb_motor_set_position(right_motor, INFINITY);
+	// encoder
+	dev_left_encoder = wb_robot_get_device("left wheel sensor");
+	dev_right_encoder = wb_robot_get_device("right wheel sensor");
+	wb_position_sensor_enable(dev_left_encoder,  time_step);
+	wb_position_sensor_enable(dev_right_encoder, time_step);
+	// accelerometer
+	dev_acc = wb_robot_get_device("accelerometer");
+	wb_accelerometer_enable(dev_acc, time_step);
+	// receiver & emitter
+	receiver = wb_robot_get_device("receiver");
+	emitter = wb_robot_get_device("emitter");
 
 	int i;
 	char s[4]="ps0";
@@ -176,9 +208,6 @@ void reset(){
 	}
 
 	printf("Reset: robot %d\n",robot_id_u);
-                 // TODO: add error term
-	// error[0] = my_position[0] + MIGRATORY_DEST_X;
-	// error[1] = my_position[1] + MIGRATORY_DEST_Y;
 }
 
 /* Initialize robot's position */
@@ -187,10 +216,18 @@ void initial_pos_local(void){
 		// Initialize self position with pre-defined array
 		my_position[0] = init_x[robot_id];  // x-position
 		my_position[1] = init_y[robot_id]; // z-position
+		printf("Init robot pos (%f, %f)\n", my_position[0], my_position[1]);
 		my_position[2] = 0; // theta
 		prev_my_position[0] = init_x[robot_id];
 		prev_my_position[1] = init_y[robot_id];
 		prev_my_position[2] = 0;
+		// goal_distance[2] = {GOAL_X, GOAL_Y}; // Error dynamics
+		goal_pos[0] = my_position[0] + goal_distance[0];
+		goal_pos[1] = my_position[1] + goal_distance[1];
+		err[0] = goal_pos[0] - my_position[0];
+		err[1] = goal_pos[1] - my_position[1];
+		prev_err[0] = err[0]; prev_err[1] = err[1];
+		integrator[0] = 0; integrator[1] = 0;
 		initialized[robot_id] = 1;  // initialized = true
 	}
 }
@@ -255,21 +292,21 @@ void compute_relative_pos(void) {
 
 		relative_speed[other_robot_id][0] = relative_speed[other_robot_id][0]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][0]-prev_relative_pos[other_robot_id][0]);
 		relative_speed[other_robot_id][1] = relative_speed[other_robot_id][1]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][1]-prev_relative_pos[other_robot_id][1]);
-
+                                  //printf("get true pos from relative estimation");
 		// TODO: compare performace with global true position
 		// get true pos from supervisor
 		if (inbuffer[0] != 'e'){
-		// printf("Robot %d \n",inbuffer[0]- '0');
-		int i = inbuffer[0]- '0';
-		sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
-		wb_receiver_next_packet(receiver);
-		true_position[i][2] += M_PI/2;
-		if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
-		if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
-		printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
-		continue;
+			//printf("get true pos from supervisor");
+			// printf("Robot %d \n",inbuffer[0]- '0');
+			int i = inbuffer[0]- '0';
+			sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
+			wb_receiver_next_packet(receiver);
+			true_position[i][2] += M_PI/2;
+			if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
+			if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
+			printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
+			continue;
 		}
-
 		wb_receiver_next_packet(receiver);
 	}
 }
@@ -304,6 +341,12 @@ void update_self_motion_naive(int msl, int msr) {
 	// Keep orientation within 0, 2pi
 	if (my_position[2] > 2*M_PI) my_position[2] -= 2.0*M_PI;
 	if (my_position[2] < 0) my_position[2] += 2.0*M_PI;
+
+	// new: update errors
+	prev_err[0] = err[0]; prev_err[1] = err[1];
+	err[0] = goal_pos[0] - my_position[0];
+	err[1] = goal_pos[1] - my_position[1];
+	printf("(%f = %f - %f)\n", err[0], goal_pos[0], my_position[0]);
 }
 
 /* Compute wheel speeds arcording to graph */
@@ -319,6 +362,7 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 		if (j == robot_id) {
 			// speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[0] - bias_x[j]);
 			// speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (my_position[1] - bias_y[j]);
+			printf("true_position: (%f, %f)\n", true_position[robot_id][0], true_position[robot_id][1]);
 			speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][0] - bias_x[j]);
 			speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][1] - bias_y[j]);
 		}
@@ -335,7 +379,22 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 			}
 		}
 	}
-	printf ("Current speed of agent %d (x, y): (%f, %f) \n", robot_id, speed[robot_id][0], speed[robot_id][1]);
+
+	// goal_speed
+	// https://github.com/dronecourse-epfl/2021-aerial-robotics-students-321657/blob/master/control/control_drone/pid_loop.m
+	//prev_err[0]; prev_err[1]; err[0]; err[1];
+	float Ts = DELTA_T/1000; // (s)
+	integrator[0] = integrator[0] + (Ts/2) * (err[0] + prev_err[0]);
+	integrator[1] = integrator[1] + (Ts/2) * (err[0] + prev_err[1]);
+	// goal_speed[0] = k_p * err[0] + k_i * integrator[0];
+	// goal_speed[1] = k_p * err[1] + k_i * integrator[1];
+	goal_speed[0] = k_p * err[0];
+	goal_speed[1] = k_p * err[1];
+	printf("Error (%f, %f)\n", err[0], err[1]);
+	printf ("X-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][0], goal_speed[0]);
+	printf ("Y-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][1], goal_speed[1]);
+	speed[robot_id][0] += goal_speed[0]; speed[robot_id][1] += goal_speed[1];
+	//printf ("Current speed of agent %d (x, y): (%f, %f) \n", robot_id, speed[robot_id][0], speed[robot_id][1]);
 
 	// Compute speed in global coordinate
 	float x = speed[robot_id][0]*cosf(my_position[2]) + speed[robot_id][1]*sinf(my_position[2]); // x in robot coordinates
@@ -357,20 +416,82 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	*msr = (u + AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	limit(msl, MAX_SPEED);
 	limit(msr, MAX_SPEED);
+	//printf ("Current speed (msl, msr) of agent %d: (%f, %f) \n", msl, msr, robot_id);
 }
 
-/* Obstacle avoidance */
+/*************************/
+/* Sensor functions */
+/*************************/
+// void controller_get_acc()
+// {
+//   // To Do : Call the function to get the accelerometer measurements. Uncomment and complete the following line. Note : Use dev_acc
+//   const double * acc_values = wb_accelerometer_get_values(dev_acc);
+
+//   // To Do : Copy the acc_values into the measurment structure (use memcpy)
+//   memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
+
+//   if(VERBOSE_ACC)
+//     printf("ROBOT acc : %g %g %g\n", _meas.acc[0], _meas.acc[1] , _meas.acc[2]);
+// }
+
+// void controller_get_encoder()
+// {
+//   // Store previous value of the left encoder
+//   _meas.prev_left_enc = _meas.left_enc;
+
+//   _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
+
+//   // Store previous value of the right encoder
+//   _meas.prev_right_enc = _meas.right_enc;
+
+//   _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
+
+//   if(VERBOSE_ENC)
+//     printf("ROBOT enc : %g %g\n", _meas.left_enc, _meas.right_enc);
+// }
+
+// void controller_compute_mean_acc(int ts)
+// {
+//   static int count = 0;
+
+//   count++;
+
+//   if( count > 20 ) // Remove the effects of strong acceleration at the begining
+//   {
+//     for(int i = 0; i < 3; i++)
+//         _meas.acc_mean[i] = (_meas.acc_mean[i] * (count - 1) + _meas.acc[i]) / (double) count;
+//   }
+//   else //reset mean values
+//   {
+//     for(int i = 0; i < 3; i++)
+//         _meas.acc_mean[i] = 0.0;
+//   }
+//   if( count == (int) (TIME_INIT_ACC / (double) ts * 1000) )
+//     printf("Accelerometer initialization Done ! \n");
+
+//   if(VERBOSE_ACC_MEAN)
+//         printf("ROBOT acc mean : %g %g %g\n", _meas.acc_mean[0], _meas.acc_mean[1] , _meas.acc_mean[2]);
+// }
+
+// void controller_compute_initial_mean_acc()
+// {
+//   _meas.acc_mean[0] = 6.56983e-05;
+//   _meas.acc_mean[1] = 0.00781197;
+//   _meas.acc_mean[2] = 9.81;
+//   //printf("bias set \n");
+// }
 
 /*************************/
 /* MAIN */
 /*************************/
 int main(){
-                // Incidence Matrix V (FLOCK_SIZE) xE
-                gsl_matrix * incidence  = gsl_matrix_calloc (FLOCK_SIZE, EDGE_SIZE);
-                // Weight Matrix E x E
-                gsl_matrix * weight  = gsl_matrix_calloc (EDGE_SIZE, EDGE_SIZE);
-                // Laplacian Matrix VxV I * W * I^T
-                gsl_matrix * laplacian  = gsl_matrix_alloc (FLOCK_SIZE, FLOCK_SIZE);
+	/* Variables setup */
+	// Incidence Matrix V (FLOCK_SIZE) xE
+	gsl_matrix * incidence  = gsl_matrix_calloc (FLOCK_SIZE, EDGE_SIZE);
+	// Weight Matrix E x E
+	gsl_matrix * weight  = gsl_matrix_calloc (EDGE_SIZE, EDGE_SIZE);
+	// Laplacian Matrix VxV I * W * I^T
+	gsl_matrix * laplacian  = gsl_matrix_alloc (FLOCK_SIZE, FLOCK_SIZE);
 	// init laplacian for the robot
 	// In Figure 7, we have linked two vehicles using the above
 	// decentralized law with the incidence matrix I = [1, −1]T
@@ -394,41 +515,56 @@ int main(){
 	// float *rbbuffer;                  // buffer for the range and bearing
 	// int i,initialized;
 
-	reset();                          // Initialization
+	/* Webots init, device, and odom setup */
+	wb_robot_init();
+	int time_step = wb_robot_get_basic_time_step();
+	init_device(time_step);                          // Initialization
+	odo_reset(time_step);
 	//if (INIT_TYPE_LOCAL)
 	initial_pos_local(); // Initializing the robot's position from local settings
 	//initial_pos_super(); // Initializing the robot's position from supervisor
 
+	//improves acceleration odometry in the beginning
+	controller_compute_initial_mean_acc();
+
 	//for(;;){
 		// TODO: setting final goal with threshold!
-		int cnt = 0;
-		while (true) {
+	int cnt = 0;
+	while (true) {
 		printf("#####\n");
 		printf("##### %d-step for robot %d\n", cnt, robot_id);
 
 		/* I. Obstacle avoidance */
 		// TODO: test Braitenburg
-		// int sensor_nb;
-		// int bmsl = 0;
-		// int bmsr = 0;
-		// for(sensor_nb=0;sensor_nb<NB_SENSORS;sensor_nb++){  // read sensor values and calculate motor speeds
-		  // distances[sensor_nb]=wb_distance_sensor_get_value(ds[sensor_nb]);
-		  // /* Weighted sum of distance sensor values for Braitenburg vehicle */
-		  // bmsr += distances[sensor_nb] * Interconn[sensor_nb];
-		  // bmsl += distances[sensor_nb] * Interconn[sensor_nb + NB_SENSORS];
-		// }
+		int sensor_nb;
+		int bmsl = 0;
+		int bmsr = 0;
+		for(sensor_nb=0;sensor_nb<NB_SENSORS;sensor_nb++){  // read sensor values and calculate motor speeds
+		  distances[sensor_nb]=wb_distance_sensor_get_value(ds[sensor_nb]);
+		  /* Weighted sum of distance sensor values for Braitenburg vehicle */
+		  bmsr += distances[sensor_nb] * Interconn[sensor_nb];
+		  bmsl += distances[sensor_nb] * Interconn[sensor_nb + NB_SENSORS];
+		}
 
 		//// TODO: need test!!!
 		// bmsl /= 400; bmsr /= 400;        // Normalizing speeds
 		//// Adapt Braitenberg values (empirical tests)
-		// bmsl/=MIN_SENS; bmsr/=MIN_SENS;
-		// bmsl+=66; bmsr+=72;
+		bmsl/=MIN_SENS; bmsr/=MIN_SENS;
+		bmsl+=66; bmsr+=72;
 
 		/* II. Udpate position from receiver */
 		send_ping();  // sending a ping to other robot
 
 		// Compute self position & speed
 		// 1. update self's position from kalman filter/ encoder info
+		// from sensor
+		// controller_get_pose(); // gps
+		// controller_get_acc(); //accelarator
+		controller_get_encoder(); // encoder
+		//compute odometries and kalman filter based localization
+		odo_compute_encoders(&_odo_enc, &_speed_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
+    	
+		// from local calculation !!! large error
 		prev_my_position[0] = my_position[0];
 		prev_my_position[1] = my_position[1];
 		update_self_motion_naive(msl,msr);
@@ -446,14 +582,15 @@ int main(){
 		}
 
 		// TODO: test Braitenburg
-		// msl += bmsl;
-		// msr += bmsr;
+		msl += 0.1 * bmsl;
+		msr += 0.1 * bmsr;
 
 
 		/*Webots 2018b*/
 		// Set speed
 		msl_w = msl*MAX_SPEED_WEB/1000;
 		msr_w = msr*MAX_SPEED_WEB/1000;
+		printf ("Current wheel speed (msl_w, msr_w) of agent %d: (%f, %f) \n", robot_id, msl_w, msr_w);
 		wb_motor_set_velocity(left_motor, msl_w);
 		wb_motor_set_velocity(right_motor, msr_w);
 		//wb_differential_wheels_set_speed(msl,msr);
