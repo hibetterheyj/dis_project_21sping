@@ -9,10 +9,10 @@
 #include <webots/emitter.h>
 #include <webots/supervisor.h>
 
-#define VERBOSE_flocking_metric false       // Print metrics of flocking
+#define VERBOSE_flocking_metric true       // Print metrics of flocking
 #define VERBOSE_formation_metric false       // Print metrics of formation
 
-#define FLOCK_SIZE	2		// Number of robots in flock
+#define FLOCK_SIZE	5		// Number of robots in flock
 #define TIME_STEP	64		// [ms] Length of time step
 
 //Robot speed parameters
@@ -148,7 +148,7 @@ void compute_metric_flocking(){
       H_diff = fabsf(loc[i][2]-loc[j][2]);
       orientation += H_diff > M_PI ? 2-H_diff/M_PI : H_diff/M_PI;
       
-      float delta_pos = sqrtf(powf(loc[i][0]-loc[j][0],2)+powf(loc[i][1]-loc[j][0],2));
+      float delta_pos = sqrtf(powf(loc[i][0]-loc[j][0],2)+powf(loc[i][1]-loc[j][1],2));
       float c1 = delta_pos/RULE2_THRESHOLD;
       float c2 = 1/powf(1 - RULE2_THRESHOLD + delta_pos, 2);
       d_2 += c1 < c2 ? c1 : c2;
@@ -174,7 +174,7 @@ void compute_metric_flocking(){
   
   if (VERBOSE_flocking_metric){
     printf("orientation metric is %g \n",orientation);
-    printf("Denominator of distance metric is %g, Molecular of distance metric is %g \n",1 + d_1/FLOCK_SIZE,d_2/(FLOCK_SIZE*(FLOCK_SIZE-1)/2));
+    printf("Denominator of distance metric is %g, Numerator of distance metric is %g \n",1 + d_1/FLOCK_SIZE,d_2/(FLOCK_SIZE*(FLOCK_SIZE-1)/2));
     printf("distance metric is %g \n",distance);
     printf("velocity metric is %g \n",velocity);
     printf("overall metric is %g \n",metric);

@@ -250,6 +250,7 @@ void reynolds_rules() {
 void send_ping(void) {
 	char out[10];
 	strcpy(out,robot_name);  // in the ping message we send the name of the robot.
+	// printf("robot_name: %s, out: %s\n", robot_name, out);
 	wb_emitter_send(emitter,out,strlen(out)+1); 
 }
 
@@ -286,7 +287,7 @@ void process_received_ping_messages(void) {
                       }
                        
 
-		theta =	-atan2(y,x);
+		theta = -atan2(y,x);
 		theta = theta + my_position[2]; // find the relative theta;
 		range = sqrt((1/message_rssi));
 
@@ -299,7 +300,7 @@ void process_received_ping_messages(void) {
 		relative_pos[other_robot_id][0] = range*cos(theta);  // relative x pos
 		relative_pos[other_robot_id][1] = -1.0 * range*sin(theta);   // relative y pos
 	
-		printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, my theta %g\n",robot_name,other_robot_id,relative_pos[other_robot_id][0],relative_pos[other_robot_id][1],-atan2(y,x)*180.0/3.141592,my_position[2]*180.0/3.141592);
+            	// printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, my theta %g\n",robot_name,other_robot_id,relative_pos[other_robot_id][0],relative_pos[other_robot_id][1],-atan2(y,x)*180.0/3.141592,my_position[2]*180.0/3.141592);
 
 		relative_speed[other_robot_id][0] = relative_speed[other_robot_id][0]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][0]-prev_relative_pos[other_robot_id][0]);
 		relative_speed[other_robot_id][1] = relative_speed[other_robot_id][1]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][1]-prev_relative_pos[other_robot_id][1]);		
@@ -336,6 +337,7 @@ int main(){
 		max_sens = 0;
                 
 		/* Braitenberg */
+		// indispensible for flocking!
 		for(i=0;i<NB_SENSORS;i++) {
 			distances[i]=wb_distance_sensor_get_value(ds[i]); //Read sensor values
 			sum_sensors += distances[i]; // Add up sensor values
