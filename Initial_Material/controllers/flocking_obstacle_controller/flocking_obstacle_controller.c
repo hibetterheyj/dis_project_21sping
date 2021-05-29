@@ -11,6 +11,8 @@
 #include <webots/emitter.h>
 #include <webots/receiver.h>
 
+#define VERBOSE true // Print diagnosis information
+
 #define NB_SENSORS	  8	  // Number of distance sensors
 #define MIN_SENS          350     // Minimum sensibility value
 #define MAX_SENS          4096    // Maximum sensibility value
@@ -108,8 +110,8 @@ static void reset() {
 	for(i=0; i<FLOCK_SIZE; i++) {
 		initialized[i] = 0;		  // Set initialization to 0 (= not yet initialized)
 	}
-  
-        printf("Reset: robot %d\n",robot_id_u);
+  			if (VERBOSE)
+  				printf("Reset: robot %d\n",robot_id_u);
         
         migr[0] = my_position[0] + MIGRATORY_DEST_X;
         migr[1] = my_position[1] + MIGRATORY_DEST_Z;
@@ -173,8 +175,8 @@ void compute_wheel_speeds(int *msl, int *msr) {
 	// Convert to wheel speeds!
 	*msl = (u - AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u + AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
-	limit(msl,MAX_SPEED);
-	limit(msr,MAX_SPEED);
+	// limit(msl,MAX_SPEED);
+	// limit(msr,MAX_SPEED);
 }
 
 
@@ -250,7 +252,6 @@ void reynolds_rules() {
 void send_ping(void) {
 	char out[10];
 	strcpy(out,robot_name);  // in the ping message we send the name of the robot.
-	// printf("robot_name: %s, out: %s\n", robot_name, out);
 	wb_emitter_send(emitter,out,strlen(out)+1); 
 }
 
@@ -272,19 +273,19 @@ void process_received_ping_messages(void) {
 		double y = message_direction[2];
 		double x = message_direction[1];
                       
-                      //get true pos from supervisor
-                      if (inbuffer[0] != 'e'){
-                        // printf("Robot %d \n",inbuffer[0]- '0');
-                       
-                        int i = inbuffer[0]- '0';
-                        sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
-                        wb_receiver_next_packet(receiver);
-                        true_position[i][2] += M_PI/2;
-                        if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
-                        if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
-                        printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
-                        continue;
-                      }
+    //get true pos from supervisor
+    if (inbuffer[0] != 'e'){
+      // printf("Robot %d \n",inbuffer[0]- '0');
+     
+      int i = inbuffer[0]- '0';
+      sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
+      wb_receiver_next_packet(receiver);
+      true_position[i][2] += M_PI/2;
+      if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
+      if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
+      printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
+      continue;
+    }
                        
 
 		theta = -atan2(y,x);
@@ -300,7 +301,8 @@ void process_received_ping_messages(void) {
 		relative_pos[other_robot_id][0] = range*cos(theta);  // relative x pos
 		relative_pos[other_robot_id][1] = -1.0 * range*sin(theta);   // relative y pos
 	
-            	// printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, my theta %g\n",robot_name,other_robot_id,relative_pos[other_robot_id][0],relative_pos[other_robot_id][1],-atan2(y,x)*180.0/3.141592,my_position[2]*180.0/3.141592);
+		if (VERBOSE)
+    	printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, my theta %g\n",robot_name,other_robot_id,relative_pos[other_robot_id][0],relative_pos[other_robot_id][1],-atan2(y,x)*180.0/3.141592,my_position[2]*180.0/3.141592);
 
 		relative_speed[other_robot_id][0] = relative_speed[other_robot_id][0]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][0]-prev_relative_pos[other_robot_id][0]);
 		relative_speed[other_robot_id][1] = relative_speed[other_robot_id][1]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][1]-prev_relative_pos[other_robot_id][1]);		
@@ -382,6 +384,10 @@ int main(){
 		// Add Braitenberg
 		msl += bmsl;
 		msr += bmsr;
+
+		// Limit wheel speed in the last step
+		limit(&msl,MAX_SPEED);
+		limit(&msr,MAX_SPEED);
                   
 		// Set speed
 		msl_w = msl*MAX_SPEED_WEB/1000;
@@ -392,7 +398,8 @@ int main(){
 		// Continue one step
 		wb_robot_step(TIME_STEP);
 
-		printf("----- Iteration no. %d is finished. -----\n", counter);
+		if (robot_id == 0 && VERBOSE)
+			printf("----- Iteration no. %d is finished. -----\n \n", counter);
 		counter++;
 	}
 }  

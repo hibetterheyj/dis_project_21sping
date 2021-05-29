@@ -170,8 +170,8 @@ void compute_wheel_speeds(int *msl, int *msr) {
 	// Convert to wheel speeds!
 	*msl = (u - AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u + AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
-	limit(msl,MAX_SPEED);
-	limit(msr,MAX_SPEED);
+	// limit(msl,MAX_SPEED);
+	// limit(msr,MAX_SPEED);
 }
 
 
@@ -374,6 +374,10 @@ int main(){
 		// Add Braitenberg
 		msl += bmsl;
 		msr += bmsr;
+
+		// Limit wheel speed in the last step
+		limit(msl,MAX_SPEED);
+		limit(msr,MAX_SPEED);
                   
 		// Set speed
 		msl_w = msl*MAX_SPEED_WEB/1000;
@@ -386,7 +390,8 @@ int main(){
 
 		printf("Robot %s, self-position x: %g, y: %g, theta %g \n", robot_name, my_position[0], my_position[1], my_position[2]*180.0/3.141592);
 
-		printf("----- Iteration no. %d is finished. -----\n", counter);
+		if (robot_id == 0)
+			printf("----- Iteration no. %d is finished. -----\n", counter);
 		counter++;
 	}
 }  

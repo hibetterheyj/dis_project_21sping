@@ -173,9 +173,9 @@ void compute_metric_flocking(){
   float metric = orientation*distance*velocity;
   
   if (VERBOSE_flocking_metric){
-    printf("orientation metric is %g \n",orientation);
-    printf("Denominator of distance metric is %g, Numerator of distance metric is %g \n",1 + d_1/FLOCK_SIZE,d_2/(FLOCK_SIZE*(FLOCK_SIZE-1)/2));
-    printf("distance metric is %g \n",distance);
+    printf("orientation metric is %g      ",orientation);
+    // printf("Denominator of distance metric is %g, Numerator of distance metric is %g \n",1 + d_1/FLOCK_SIZE,d_2/(FLOCK_SIZE*(FLOCK_SIZE-1)/2));
+    printf("distance metric is %g     ",distance);
     printf("velocity metric is %g \n",velocity);
     printf("overall metric is %g \n",metric);
   }
