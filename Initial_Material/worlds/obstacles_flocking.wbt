@@ -522,6 +522,7 @@ DEF rock Solid {
 DEF SUPERVISOR Robot {
   children [
     Emitter {
+      channel 1
     }
   ]
   controller "overall_supervisor"
