@@ -22,7 +22,7 @@
 #define MAX_SPEED_WEB      6.28    // Maximum speed webots
 
 // Flocking parameters
-#define RULE2_THRESHOLD     0.15   // Threshold to activate dispersion rule. default 0.15
+#define FLOCKING_DIST     0.14   // Threshold to activate dispersion rule. default 0.15
 
 // Formation parameter
 // Following value should be in Webots coordination!!!
@@ -149,8 +149,8 @@ void compute_metric_flocking(){
       orientation += H_diff > M_PI ? 2-H_diff/M_PI : H_diff/M_PI;
       
       float delta_pos = sqrtf(powf(loc[i][0]-loc[j][0],2)+powf(loc[i][1]-loc[j][1],2));
-      float c1 = delta_pos/RULE2_THRESHOLD;
-      float c2 = 1/powf(1 - RULE2_THRESHOLD + delta_pos, 2);
+      float c1 = delta_pos/FLOCKING_DIST;
+      float c2 = 1/powf(1 - FLOCKING_DIST + delta_pos, 2);
       d_2 += c1 < c2 ? c1 : c2;
     }
     d_1 += sqrtf(powf(loc[i][0]-avg_loc[0],2)+powf(loc[i][1]-avg_loc[1],2));
