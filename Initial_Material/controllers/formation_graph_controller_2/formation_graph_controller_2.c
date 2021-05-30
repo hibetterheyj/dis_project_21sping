@@ -87,11 +87,11 @@ float goal_pos[2];
 float err[2];
 float prev_err[2];
 float integrator[2];
-float k_p = 0.1;
+float k_p = 0.2;
 float k_I = 1.0;
-// initial position
-float init_x[FLOCK_SIZE] = {-2.9, -2.9};
-float init_y[FLOCK_SIZE] = {0.0, 0.1};
+// initial position of 5 robots
+float init_x[5] = {-2.9, -2.9, -2.9, -2.9, -2.9};
+float init_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
 
 /* TUNING PARAMETERS */
 int DELTA_T=64;	// [ms] Length of time step
@@ -99,8 +99,10 @@ float THRESHOLD=0.05;	// Convergence threshold
 int Interconn[16] = {-5,-15,-20,6,4,6,3,5,4,4,6,-18,-15,-5,5,3};
 
 // bias vector
-float bias_x[FLOCK_SIZE] = {0, 0};
-float bias_y[FLOCK_SIZE] = {0.0, 0.1};
+float bias_x[5] = {0, 0, 0, 0, 0};
+float bias_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
+
+double weight_coefficient = 0.01;
 
 /**************************************************/
 /* ROBOT VARIABLES INITIALIZATION */
@@ -128,10 +130,30 @@ static pose_t _odo_enc, _speed_enc; // _pose, _odo_acc,
 /**************************************************/
 /* UTILITY FUNCTIONS */
 /**************************************************/
+// https://www.gnu.org/software/gsl/doc/html/vectors.html#c.gsl_matrix
+int num_rows(gsl_matrix * A){
+    int r = A->size1;
+    return r;
+}
+
+int num_cols(gsl_matrix * A){
+    int r = A->size2;
+    return r;
+}
+
+/* Compute weight matrix, W */
+void compute_weight(gsl_matrix * weight, double weight_coefficient, int edge_size){
+    // temp matrix (FLOCK_SIZE) xE
+	for (int i = 0; i<edge_size; i++){
+		gsl_matrix_set(weight, i, i, weight_coefficient);
+	}
+}
+
 /* Compute laplacian matrix, I * W * I^T */
 void compute_laplacian(gsl_matrix * incidence, gsl_matrix * weight, gsl_matrix * laplacian){
     // temp matrix (FLOCK_SIZE) xE
-    gsl_matrix * temp  = gsl_matrix_alloc (FLOCK_SIZE, EDGE_SIZE);
+	int edge_size = num_rows(weight);
+    gsl_matrix * temp  = gsl_matrix_alloc (FLOCK_SIZE, edge_size);
     gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
                     1.0, incidence, weight,
                     0.0, temp);
@@ -422,8 +444,8 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	float x = speed[robot_id][0]*cosf(true_position[robot_id][2]) + speed[robot_id][1]*sinf(true_position[robot_id][2]); // x in robot coordinates
 	float y = -speed[robot_id][0]*sinf(true_position[robot_id][2]) + speed[robot_id][1]*cosf(true_position[robot_id][2]); // y in robot coordinates
 	// printf ("x and y is: (%f, %f) \n", x, y);
-	
-            
+
+
 	float Ku = 0.2;   // Forward control coefficient
 	float Kw = 0.5;  // Rotational control coefficient
 	float range = sqrtf(x*x + y*y);	  // Distance to the wanted position
@@ -454,7 +476,7 @@ int main(){
 	// Incidence Matrix V (FLOCK_SIZE) xE
 	gsl_matrix * incidence  = gsl_matrix_calloc (FLOCK_SIZE, EDGE_SIZE);
 	// Weight Matrix E x E
-	gsl_matrix * weight  = gsl_matrix_calloc (EDGE_SIZE, EDGE_SIZE);
+	gsl_matrix * weight  = gsl_matrix_alloc (EDGE_SIZE, EDGE_SIZE);
 	// Laplacian Matrix VxV I * W * I^T
 	gsl_matrix * laplacian  = gsl_matrix_alloc (FLOCK_SIZE, FLOCK_SIZE);
 	// init laplacian for the robot
@@ -464,8 +486,10 @@ int main(){
 	// be careful when setting incidence
 	gsl_matrix_set(incidence, 0, 0, 1.0);
 	gsl_matrix_set(incidence, 1, 0, -1.0);
-	gsl_matrix_set_identity(weight);
+	compute_weight(weight, weight_coefficient, EDGE_SIZE);
+	printf ("weight(%d,%d) = %g\n", 0, 0, gsl_matrix_get (weight, 0, 0));
 	compute_laplacian(incidence, weight, laplacian);
+
 	for (int i = 0; i <2; i++)
                   for (int j = 0; j < 2; j++)
                       printf ("m2(%d,%d) = %g\n", i, j,
