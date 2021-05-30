@@ -67,7 +67,7 @@
 
 ### Do not modify: this includes Webots global Makefile.include
 ### Do not modify: this includes Webots global Makefile.include
-C_SOURCES = formation_graph_controller.c ../localization_library_test/localization.c ../localization_library_test/trajectories.c ../localization_library_test/odometry.c ../localization_library_test/kalman.c
+C_SOURCES = formation_graph_controller_2.c ../localization_library_test/localization.c ../localization_library_test/trajectories.c ../localization_library_test/odometry.c ../localization_library_test/kalman.c
 
 # yujie
 # https://stackoverflow.com/questions/714100/os-detecting-makefile
