@@ -1,4 +1,4 @@
-#VRML_SIM R2019b utf8
+#VRML_SIM R2021a utf8
 WorldInfo {
   info [
     "Description"
@@ -6,10 +6,11 @@ WorldInfo {
     "Date: DD MMM YYYY"
   ]
   basicTimeStep 16
+  coordinateSystem "NUE"
 }
 Viewpoint {
   orientation -0.9998684634686608 0.016207307512567284 0.0006155842853415571 1.15569
-  position -0.8973567983499494 4.830536803744569 2.381823840761219
+  position -0.9004858194074143 4.632596701017797 2.294577573449024
 }
 PointLight {
   intensity 0.5
@@ -228,7 +229,7 @@ DEF SUPERVISOR Robot {
     }
   ]
   name "super0"
-  controller ""
+  controller "overall_supervisor"
   supervisor TRUE
 }
 DEF SUPERVISOR Robot {
@@ -238,7 +239,7 @@ DEF SUPERVISOR Robot {
     }
   ]
   name "super1"
-  controller ""
+  controller "overall_supervisor"
   supervisor TRUE
 }
 DEF epuck0 Robot {
@@ -1620,7 +1621,7 @@ DEF epuck0 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
 DEF epuck1 Robot {
@@ -3002,7 +3003,7 @@ DEF epuck1 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
@@ -4384,7 +4385,7 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
 DEF epuck3 Robot {
@@ -5766,7 +5767,7 @@ DEF epuck3 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
@@ -7148,7 +7149,7 @@ DEF epuck4 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
 DEF epuck5 Robot {
@@ -8530,7 +8531,7 @@ DEF epuck5 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
 DEF epuck6 Robot {
@@ -9912,7 +9913,7 @@ DEF epuck6 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
 DEF epuck7 Robot {
@@ -11294,7 +11295,7 @@ DEF epuck7 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
 DEF epuck8 Robot {
@@ -12676,7 +12677,7 @@ DEF epuck8 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
 DEF epuck9 Robot {
@@ -14058,6 +14059,6 @@ DEF epuck9 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "flocking_crossing_controller"
   cpuConsumption 1.11
 }
