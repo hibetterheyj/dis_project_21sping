@@ -318,8 +318,8 @@ void send_mea() {
   message[3] = _odo_acc.y;
   message[4] = _odo_enc.x;
   message[5] = _odo_enc.y;
-  message[6] = gsl_matrix_get(X_acc,0,0);
-  message[7] = gsl_matrix_get(X_acc,1,0);
+  message[6] = gsl_matrix_get(X_enc,0,0);
+  message[7] = gsl_matrix_get(X_enc,1,0);
   // printf("emitter time: %g \n",time_now_s);
   // printf("est: %g %g \n",message[0],message[1]);
   // printf("est: %g %g \n",message[2],message[3]);
