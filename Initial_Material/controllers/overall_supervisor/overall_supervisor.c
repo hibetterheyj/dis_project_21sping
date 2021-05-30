@@ -22,7 +22,7 @@
 #define MAX_SPEED_WEB      6.28    // Maximum speed webots
 
 // Flocking parameters
-#define FLOCKING_DIST     0.14   // Threshold to activate dispersion rule. default 0.15
+#define FLOCKING_DIST     0.14   // Flcoking pairwise robot distance
 
 // Formation parameter
 // Following value should be in Webots coordination!!!
