@@ -13,8 +13,7 @@ typedef struct
   double right_enc;
 } measurement_t;
 
-void init_position(int time_step, double x_init, double z_init, double h_init);
-void compute_position(int time_step);
+void init_position();
 void init_state();
 void init_devices(int ts);
 void controller_get_pose();

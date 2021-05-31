@@ -1,7 +1,7 @@
 #include "localization.h"
 
-int main()
+int main() 
 {
-run();
-return 0;
+  run();
+  return 0;
 }

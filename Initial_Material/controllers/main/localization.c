@@ -50,7 +50,7 @@ WbDeviceTag dev_acc;
 WbDeviceTag dev_left_encoder;
 WbDeviceTag dev_right_encoder;
 WbDeviceTag dev_left_motor; 
-WbDeviceTag dev_right_motor;
+WbDeviceTag dev_right_motor; 
 WbDeviceTag emitter;		// Handle for the emitter node
 
 char* robot_name;
@@ -60,11 +60,33 @@ int run()
 {
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
-  init_position(time_step, -2.9, 0, 0);
+  init_position();
   controller_init_log("logs.csv"); //logs file
   
+  //initial mean acceleration (as calibration takes place when the robot moves at cst speed)
+  //improves acceleration odometry in the beginning
+  controller_compute_initial_mean_acc();
+  
   while ((wb_robot_step(time_step) != -1)&& wb_robot_get_time()<130)  {
-    compute_position(time_step);
+    controller_get_pose();
+    controller_get_acc();
+    controller_get_encoder();
+    //get mean values when the robot moves at cst speed
+    if((wb_robot_get_time()<TIME_INIT_ACC)&&(wb_robot_get_time()>1))
+    {
+      controller_compute_mean_acc(time_step);
+    }
+    //compute odometries and kalman filter based localization
+    odo_compute_acc(&_odo_acc, _meas.acc, _meas.acc_mean);
+    odo_compute_encoders(&_odo_enc, &_speed_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
+
+    kalman_compute_acc(X_acc,Cov_acc,(_meas.acc[1]-_meas.acc_mean[1])*cos(_odo_enc.heading),
+      (_meas.acc[1]-_meas.acc_mean[1])*sin(_odo_enc.heading),_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
+      
+    kalman_compute_enc(X_enc,Cov_enc,_speed_enc.x,
+      _speed_enc.y,_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
+    //printf(" %g \n",gsl_matrix_get(X_enc, 0, 0));
+    //printf("%g\n", wb_robot_get_time());
 
     // send measurements to supervisor
     send_mea();
@@ -81,13 +103,17 @@ int run()
   return 0;
 }
 
-void init_position(int time_step, double x_init, double z_init, double h_init)
+void init_position()
 {
   init_devices(time_step);
+  odo_reset(time_step,&_pose_origin);
+  kalman_reset(time_step);
+  init_state(); //initial state variables for kalman filter
+  controller_compute_initial_mean_acc();
   
-  _pose.x = x_init;
-  _pose.y = z_init;
-  _pose.heading = h_init;
+  _pose.x = -2.9;
+  _pose.y = 0;
+  _pose.heading = 0;
   _pose_origin.x= _pose.x;
   _pose_origin.y= _pose.y;
   _odo_acc.x= _pose.x;
@@ -96,37 +122,8 @@ void init_position(int time_step, double x_init, double z_init, double h_init)
   _odo_enc.x= _pose.x;
   _odo_enc.y= _pose.y;
   _odo_enc.heading= _pose.heading;
-  
-  odo_reset(time_step,&_pose_origin);
-  kalman_reset(time_step);
-  init_state(); //initial state variables for kalman filter
-  //initial mean acceleration (as calibration takes place when the robot moves at cst speed)
-  //improves acceleration odometry in the beginning
-  controller_compute_initial_mean_acc();
-  controller_init_log("logs.csv"); //logs file
 }
 
-void compute_position(int time_step)
-{
-   controller_get_pose();
-   controller_get_acc();
-   controller_get_encoder();
-   //get mean values when the robot moves at cst speed
-   if((wb_robot_get_time()<TIME_INIT_ACC)&&(wb_robot_get_time()>1))
-   {
-     controller_compute_mean_acc(time_step);
-   }
-   //compute odometries and kalman filter based localization
-   odo_compute_acc(&_odo_acc, _meas.acc, _meas.acc_mean);
-   odo_compute_encoders(&_odo_enc, &_speed_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
-
-   kalman_compute_acc(X_acc,Cov_acc,(_meas.acc[1]-_meas.acc_mean[1])*cos(_odo_enc.heading),
-     (_meas.acc[1]-_meas.acc_mean[1])*sin(_odo_enc.heading),_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
-      
-   kalman_compute_enc(X_enc,Cov_enc,_speed_enc.x,
-     _speed_enc.y,_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
-     controller_print_log(wb_robot_get_time());
-}
 void init_state() //declaration of kalman filter input and output variables
 {
   // states variables for acc based kalman
