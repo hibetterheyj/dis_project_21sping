@@ -34,13 +34,13 @@
 
 
 // ********** Tunable parameters **********
-#define VERBOSE true // Print diagnosis information
+#define VERBOSE false // Print diagnosis information
 
 #define RULE1_THRESHOLD     0.01   // Threshold to activate aggregation rule. default 0.20
 #define RULE1_WEIGHT        (5.0/10)	   // Weight of aggregation rule. default 0.6/10
 
 #define RULE2_THRESHOLD     0.15   // Threshold to activate dispersion rule. default 0.15
-#define RULE2_WEIGHT        (0.01/10)	   // Weight of dispersion rule. default 0.02/10
+#define RULE2_WEIGHT        (0.02/10)	   // Weight of dispersion rule. default 0.02/10
 
 #define RULE3_WEIGHT        (1.0/10)   // Weight of consistency rule. default 1.0/10
 
@@ -314,7 +314,8 @@ void reynolds_rules() {
 		else
 			migration_strength = -1.0;
 
-		printf("Dist to migration destination: %g, strength: %g \n", dist_to_migration, migration_strength);
+		if (VERBOSE)
+			printf("Dist to migration destination: %g, strength: %g \n", dist_to_migration, migration_strength);
 		if (migration_strength > 0){
 			float migr_x, migr_y;
 			migr_x = (migr[0]-my_position[0]) * MIGRATION_WEIGHT * migration_strength;
@@ -322,7 +323,8 @@ void reynolds_rules() {
 
 			// printf("migr[0]: %g, my_position[0]: %g \n", migr[0], my_position[0]);
 			// printf("migr[1]: %g, my_position[1]: %g \n", migr[1], my_position[1]);
-			printf("migr_x: %g, migr_y: %g \n", migr_x, migr_y);
+			if (VERBOSE)
+				printf("migr_x: %g, migr_y: %g \n", migr_x, migr_y);
 			// speed[robot_id][0] += (migr[0]-my_position[0]) * MIGRATION_WEIGHT;
 			// speed[robot_id][1] += (migr[1]-my_position[1]) * MIGRATION_WEIGHT;
 			speed[robot_id][0] += migr_x;
