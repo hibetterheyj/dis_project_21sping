@@ -29,13 +29,13 @@
 #define VERBOSE_GPS false        // Print GPS values
 #define VERBOSE_ACC false       // Print accelerometer values
 #define VERBOSE_ACC_MEAN false  // Print accelerometer mean values
-#define VERBOSE_POSE false      // Print pose values
+#define VERBOSE_POSE true      // Print pose values
 #define VERBOSE_ENC false       // Print encoder values
 
 // variables
 static measurement_t  _meas;
 static pose_t         _pose, _odo_acc, _odo_enc, _speed_enc;
-static pose_t         _pose_origin = {-2.9, 0, 0};
+static pose_t         _pose_origin = {0, 0, 0};
 double last_gps_time_s = 0.0f;
 double last_gps_send_time_s = 0.0f;
 double message[8] ;
@@ -61,7 +61,8 @@ int run()
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
   init_devices(time_step);
-  odo_reset(time_step);
+  init_position();
+  odo_reset(time_step,&_pose_origin);
   kalman_reset(time_step);
   controller_init_log("logs.csv"); //logs file
   init_state(); //initial state variables for kalman filter
@@ -106,6 +107,25 @@ int run()
   return 0;
 }
 
+void init_position()
+{
+  /*controller_get_gps();
+  _pose.x = _meas.gps[0] - _pose_origin.x;
+  _pose.y = -(_meas.gps[2] - _pose_origin.y);
+  _pose.heading = controller_get_heading() + _pose_origin.heading;*/
+  _pose.x = -2.9;
+  _pose.y = 0;
+  _pose.heading = 0;
+  _pose_origin.x= _pose.x;
+  _pose_origin.y= _pose.y;
+  _odo_acc.x= _pose.x;
+  _odo_acc.y= _pose.y;
+  _odo_acc.heading= _pose.heading;
+  _odo_enc.x= _pose.x;
+  _odo_enc.y= _pose.y;
+  _odo_enc.heading= _pose.heading;
+}
+
 void init_state() //declaration of kalman filter input and output variables
 {
   // states variables for acc based kalman
@@ -115,12 +135,16 @@ void init_state() //declaration of kalman filter input and output variables
   gsl_matrix_set(Cov_acc,2,2,0.001);
   gsl_matrix_set(Cov_acc,3,3,0.001);
   X_acc= gsl_matrix_calloc(4, 1);
+  gsl_matrix_set(X_acc,0,0,_pose.x);
+  gsl_matrix_set(X_acc,1,0,_pose.y);
   
   // state variables for enc based kalman
   Cov_enc = gsl_matrix_calloc(2, 2);
   gsl_matrix_set(Cov_enc,0,0,0.001);
   gsl_matrix_set(Cov_enc,1,1,0.001);
   X_enc= gsl_matrix_calloc(2, 1);
+  gsl_matrix_set(X_enc,0,0,_pose.x);
+  gsl_matrix_set(X_enc,1,0,_pose.y);
 }
 
 void init_devices(int ts) {
@@ -161,6 +185,10 @@ void controller_get_pose()
     _pose.x = _meas.gps[0] - _pose_origin.x;
     _pose.y = -(_meas.gps[2] - _pose_origin.y);
     _pose.heading = controller_get_heading() + _pose_origin.heading;
+    
+    _pose.x = _meas.gps[0];
+    _pose.y = -(_meas.gps[2]);
+    _pose.heading = controller_get_heading();
   
     if(VERBOSE_POSE)
       printf("ROBOT pose : %g %g %g\n", _pose.x , _pose.y , RAD2DEG(_pose.heading));

@@ -109,16 +109,18 @@ void odo_compute_encoders(pose_t* odo, pose_t* enc_speed, double Aleft_enc, doub
  *
  * @param[in]  time_step  The time step used in the simulation in miliseconds
  */
-void odo_reset(int time_step)
+void odo_reset(int time_step,pose_t* initpos)
 {
 
- 	memset(&_odo_pose_acc, 0 , sizeof(pose_t));
+ 	memcpy(&_odo_pose_acc, initpos , sizeof(pose_t));
 
 	memset(&_odo_speed_acc, 0 , sizeof(pose_t));
 
-	memset(&_odo_pose_enc, 0 , sizeof(pose_t));
+	memcpy(&_odo_pose_enc, initpos , sizeof(pose_t));
 
 	memset(&_speed_enc, 0 , sizeof(pose_t));
 
 	_T = time_step / 1000.0;
+	
+	//printf("x : %f, y : %f, h : %f",_odo_pose_acc.x,_odo_pose_acc.y,_odo_pose_acc.heading);
 }
