@@ -21,6 +21,7 @@
 #define MAX_SPEED_WEB      6.28    // Maximum speed webots
 /*Webots 2018b*/
 #define FLOCK_SIZE	  10	  // Size of flock
+#define SINGLE_FLOCK_SIZE 5
 #define TIME_STEP	  64	  // [ms] Length of time step
 
 #define AXLE_LENGTH 		0.052	// Distance between wheels of robot (meters)
@@ -35,23 +36,23 @@
 // ********** Tunable parameters **********
 #define VERBOSE true // Print diagnosis information
 
-#define RULE1_THRESHOLD     0.25   // Threshold to activate aggregation rule. default 0.20
-#define RULE1_WEIGHT        (2./10)	   // Weight of aggregation rule. default 0.6/10
+#define RULE1_THRESHOLD     0.01   // Threshold to activate aggregation rule. default 0.20
+#define RULE1_WEIGHT        (5.0/10)	   // Weight of aggregation rule. default 0.6/10
 
 #define RULE2_THRESHOLD     0.15   // Threshold to activate dispersion rule. default 0.15
 #define RULE2_WEIGHT        (0.01/10)	   // Weight of dispersion rule. default 0.02/10
 
 #define RULE3_WEIGHT        (1.0/10)   // Weight of consistency rule. default 1.0/10
 
-#define MIGRATION_WEAKEN_THRESHOLD     1.0   // Min. distance w/o migration weakening penalty
-#define MIGRATION_FREEZE_THRESHOLD     0.2   // Slow down the robot if it's within this distance to migration destination
-#define MIGRATION_WEIGHT    (0.5/10)   // Weight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_WEAKEN_THRESHOLD     0.5   // Min. distance w/o migration weakening penalty
+#define MIGRATION_FREEZE_THRESHOLD     0.1   // Slow down the robot if it's within this distance to migration destination
+#define MIGRATION_WEIGHT    (0.6/10)   // Weight of attraction towards the common goal. default 0.01/10
 
 #define MIGRATORY_URGE 1 // Tells the robots if they should just go forward or move towards a specific migratory direction
 
 // Please note that X & Z axes are aligned with the robots' longitudinal and lateral motion directions at initial position respectively.
 #define MIGRATORY_DEST_X  0.0  // X-coordinate of migration destination
-#define MIGRATORY_DEST_Z  5.0  // Z-coordinate of migration destination 
+#define MIGRATORY_DEST_Z  2.0  // Z-coordinate of migration destination 
 // ********** Tunable parameters **********
 
 /*Webots 2018b*/
@@ -118,7 +119,7 @@ static void reset() {
 		initialized[i] = 0;		  // Set initialization to 0 (= not yet initialized)
 	}
   
-  	if (robot_id > 4)
+  	if (robot_id >= SINGLE_FLOCK_SIZE)
 		my_position[1] = -1.9;
 	else
 		my_position[1] = -0.1;
@@ -143,7 +144,7 @@ static void reset() {
 	}
   printf("Reset: robot %d\n",robot_id_u);
   
-  if (robot_id > 4){
+  if (robot_id >= SINGLE_FLOCK_SIZE){
 	migr[0] = my_position[0] - MIGRATORY_DEST_X;
 	migr[1] = my_position[1] + MIGRATORY_DEST_Z;
   }
@@ -238,19 +239,24 @@ void reynolds_rules() {
 	float cohesion[2] = {0,0};
 	float dispersion[2] = {0,0};
 	float consistency[2] = {0,0};
+
 	
   /* Compute averages over the whole flock */
-	for(i=0; i<FLOCK_SIZE; i++) {
+	int idx_start = robot_id >= SINGLE_FLOCK_SIZE ? SINGLE_FLOCK_SIZE : 0;
+	int idx_end = robot_id >= SINGLE_FLOCK_SIZE ? SINGLE_FLOCK_SIZE*2 : SINGLE_FLOCK_SIZE;
+
+	for(i=idx_start; i<idx_end; i++) {
 		if (i == robot_id)
 	    	continue; // don't consider yourself for the average
+
 	    for (j=0;j<2;j++) {
 	      rel_avg_speed[j] += relative_speed[i][j];
 	      rel_avg_loc[j] += relative_pos[i][j];
 	    }
 	}
 	for (j=0;j<2;j++) {
-	      rel_avg_speed[j] /= FLOCK_SIZE-1;
-	      rel_avg_loc[j] /= FLOCK_SIZE-1;
+	      rel_avg_speed[j] /= SINGLE_FLOCK_SIZE-1;
+	      rel_avg_loc[j] /= SINGLE_FLOCK_SIZE-1;
 	}
         
   /* Rule 1 - Aggregation/Cohesion: move towards the center of mass */
@@ -263,7 +269,7 @@ void reynolds_rules() {
   }
 
   /* Rule 2 - Dispersion/Separation: keep far enough from flockmates */
-  for (k=0;k<FLOCK_SIZE;k++) {
+  for (k=idx_start;k<idx_end;k++) {
   	if (k != robot_id){
    	// Loop on flockmates only
   	// If neighbor k is too close (Euclidean distance)
