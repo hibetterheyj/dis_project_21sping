@@ -31,30 +31,30 @@ static pose_t _odo_pose_acc, _odo_speed_acc, _odo_pose_enc, _speed_enc;
 
 void odo_compute_acc(pose_t* odo, const double acc[3], const double acc_mean[3])
 {
-	
+
 	double acc_wx = ( acc[1] - acc_mean[1]);
-	
+
 	double a = _odo_pose_enc.heading;
-	
+
 	_odo_speed_acc.x += acc_wx*_T;
-	
+
 	_odo_pose_acc.x += _odo_speed_acc.x*_T*cos(a);
 	_odo_pose_acc.y += _odo_speed_acc.x*_T*sin(a);
 	_odo_pose_acc.heading= a;
-           
-           
+
+
             /*_odo_speed_acc.x += acc_wx*_T*cos(a);
 	_odo_speed_acc.y += acc_wx*_T*sin(a);
-	
+
 	_odo_pose_acc.x += _odo_speed_acc.x*_T;
 	_odo_pose_acc.y += _odo_speed_acc.y*_T;*/
-	
+
 	memcpy(odo, &_odo_pose_acc, sizeof(pose_t));
-	
+
 	if(VERBOSE_ODO_ACC)
     {
  		printf("ODO with acceleration : %g %g %g\n", odo->x , odo->y , RAD2DEG(odo->heading));
- 	}	
+ 	}
 }
 
 /**
@@ -81,13 +81,13 @@ void odo_compute_encoders(pose_t* odo, pose_t* enc_speed, double Aleft_enc, doub
 	double a = _odo_pose_enc.heading;
 
 	double speed_wx = speed * cos(a);
-	
+
 	_speed_enc.x = speed_wx;
 
 	double speed_wy = speed * sin(a);
-	
+
 	_speed_enc.y = speed_wy;
-	
+
 	memcpy(enc_speed, &_speed_enc, sizeof(pose_t));
 
 	// Integration : Euler method
@@ -109,16 +109,18 @@ void odo_compute_encoders(pose_t* odo, pose_t* enc_speed, double Aleft_enc, doub
  *
  * @param[in]  time_step  The time step used in the simulation in miliseconds
  */
-void odo_reset(int time_step)
+void odo_reset(int time_step,pose_t* initpos)
 {
 
- 	memset(&_odo_pose_acc, 0 , sizeof(pose_t));
+ 	memcpy(&_odo_pose_acc, initpos , sizeof(pose_t));
 
 	memset(&_odo_speed_acc, 0 , sizeof(pose_t));
 
-	memset(&_odo_pose_enc, 0 , sizeof(pose_t));
+	memcpy(&_odo_pose_enc, initpos , sizeof(pose_t));
 
 	memset(&_speed_enc, 0 , sizeof(pose_t));
 
 	_T = time_step / 1000.0;
+	
+	//printf("x : %f, y : %f, h : %f",_odo_pose_acc.x,_odo_pose_acc.y,_odo_pose_acc.heading);
 }
