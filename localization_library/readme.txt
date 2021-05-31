@@ -3,7 +3,8 @@ This folder contains the two libraries needed to compute positioning of the epuc
 # makefile
 
 In order to use the kalman.c and odometry.c libraries, the makefile has to be modified to include them.
-At the C_SOURCES line of the makefile, add the name of the libraries.
+once you have copied the kalman.c, kalman.h, odometry.c and odometry,h files in the controller folder,
+add the name of the libraries at the C_SOURCES line of the makefile
 For example, if you want to use odometry and kalman in the code controller.c, add this line :
 
 C_SOURCES = localization_controller.c odometry.c kalman.c
