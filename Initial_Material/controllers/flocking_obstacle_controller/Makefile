@@ -44,6 +44,18 @@
 ###
 ###-----------------------------------------------------------------------------
 
+C_SOURCES = flocking_obstacle_controller.c odometry.c kalman.c
+
+# yujie
+# https://stackoverflow.com/questions/714100/os-detecting-makefile
+UNAME := $(shell uname)
+ifeq ($(UNAME), Linux)
+	LIBRARIES = -lm -lgsl -lgslcblas
+else
+	INCLUDE = -I"C:\msys64\mingw64\include"
+	LIBRARIES = -L"C:\msys64\mingw64\lib" -llibgsl
+endif
+
 ### Do not modify: this includes Webots global Makefile.include
 space :=
 space +=
