@@ -32,29 +32,34 @@ static pose_t _odo_pose_acc, _odo_speed_acc, _odo_pose_enc, _speed_enc;
 void odo_compute_acc(pose_t* odo, const double acc[3], const double acc_mean[3])
 {
 
-	double acc_wx = ( acc[1] - acc_mean[1]);
+  //printf("acc mean %g \n",acc_mean[1]);
+  //printf("acc %g \n",acc[1]);
+  if(!isnan(acc[1]) && !isnan(acc[2]) && !isnan(acc[3]))
+  {
+    double acc_wx = ( acc[1] - acc_mean[1]);
 
-	double a = _odo_pose_enc.heading;
+    double a = _odo_pose_enc.heading;
 
-	_odo_speed_acc.x += acc_wx*_T;
+    _odo_speed_acc.x += acc_wx*_T;
 
-	_odo_pose_acc.x += _odo_speed_acc.x*_T*cos(a);
-	_odo_pose_acc.y += _odo_speed_acc.x*_T*sin(a);
-	_odo_pose_acc.heading= a;
+    _odo_pose_acc.x += _odo_speed_acc.x*_T*cos(a);
+    _odo_pose_acc.y += _odo_speed_acc.x*_T*sin(a);
+    _odo_pose_acc.heading= a;
+  
+    //printf("ODO with acceleration : %g %g %g\n", _odo_pose_acc.x , _odo_pose_acc.y , _odo_pose_enc.heading);
+    /*_odo_speed_acc.x += acc_wx*_T*cos(a);
+    _odo_speed_acc.y += acc_wx*_T*sin(a);
 
+    _odo_pose_acc.x += _odo_speed_acc.x*_T;
+    _odo_pose_acc.y += _odo_speed_acc.y*_T;*/
 
-            /*_odo_speed_acc.x += acc_wx*_T*cos(a);
-	_odo_speed_acc.y += acc_wx*_T*sin(a);
+    memcpy(odo, &_odo_pose_acc, sizeof(pose_t));
 
-	_odo_pose_acc.x += _odo_speed_acc.x*_T;
-	_odo_pose_acc.y += _odo_speed_acc.y*_T;*/
-
-	memcpy(odo, &_odo_pose_acc, sizeof(pose_t));
-
-	if(VERBOSE_ODO_ACC)
+    if(VERBOSE_ODO_ACC)
     {
- 		printf("ODO with acceleration : %g %g %g\n", odo->x , odo->y , RAD2DEG(odo->heading));
- 	}
+      printf("ODO with acceleration : %g %g %g\n", odo->x , odo->y , RAD2DEG(odo->heading));
+    }
+  }
 }
 
 /**
@@ -66,41 +71,49 @@ void odo_compute_acc(pose_t* odo, const double acc[3], const double acc_mean[3])
  */
 void odo_compute_encoders(pose_t* odo, pose_t* enc_speed, double Aleft_enc, double Aright_enc)
 {
-	// Rad to meter
-	Aleft_enc  *= WHEEL_RADIUS;
+  if(!isnan(Aleft_enc) && !isnan(Aright_enc))
+  {
+    // Rad to meter
+    Aleft_enc  *= WHEEL_RADIUS;
 
-	Aright_enc *= WHEEL_RADIUS;
+    Aright_enc *= WHEEL_RADIUS;
+	
+    //printf("aleft enc %g \n",Aleft_enc);
+    //printf("aright enc %g \n",Aright_enc);
 
-	// Compute forward speed and angular speed
-	double omega = ( Aright_enc - Aleft_enc ) / ( WHEEL_AXIS * _T );
+    // Compute forward speed and angular speed
+    double omega = ( Aright_enc - Aleft_enc ) / ( WHEEL_AXIS * _T );
 
-	double speed = ( Aright_enc + Aleft_enc ) / ( 2.0 * _T );
+    double speed = ( Aright_enc + Aleft_enc ) / ( 2.0 * _T );
 
 	// Apply rotation (Body to World)
 
-	double a = _odo_pose_enc.heading;
+    double a = _odo_pose_enc.heading;
 
-	double speed_wx = speed * cos(a);
+    double speed_wx = speed * cos(a);
 
-	_speed_enc.x = speed_wx;
+    _speed_enc.x = speed_wx;
 
-	double speed_wy = speed * sin(a);
+    double speed_wy = speed * sin(a);
 
-	_speed_enc.y = speed_wy;
+    _speed_enc.y = speed_wy;
 
-	memcpy(enc_speed, &_speed_enc, sizeof(pose_t));
+    memcpy(enc_speed, &_speed_enc, sizeof(pose_t));
 
-	// Integration : Euler method
-	_odo_pose_enc.x += speed_wx * _T;
+    // Integration : Euler method
+    _odo_pose_enc.x += speed_wx * _T;
 
-	_odo_pose_enc.y += speed_wy * _T;
+    _odo_pose_enc.y += speed_wy * _T;
 
-	_odo_pose_enc.heading += omega * _T;
+    _odo_pose_enc.heading += omega * _T;
 
-	memcpy(odo, &_odo_pose_enc, sizeof(pose_t));
+    memcpy(odo, &_odo_pose_enc, sizeof(pose_t));
 
-	if(VERBOSE_ODO_ENC)
-    	printf("ODO with wheel encoders : %g %g %g\n", odo->x , odo->y , RAD2DEG(odo->heading) );
+    if(VERBOSE_ODO_ENC)
+    {
+      printf("ODO with wheel encoders : %g %g %g\n", odo->x , odo->y , RAD2DEG(odo->heading) );
+    }
+  }
 }
 
 
