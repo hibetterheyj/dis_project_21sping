@@ -22,7 +22,8 @@ static double _T;
 
 void kalman_compute_acc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double acc_x, const double acc_y, const double gps_x, const double gps_y, const double delay)
 {
-  //accelerations values in world frame
+  if(!isnan(acc_x) && !isnan(acc_y))
+  {//accelerations values in world frame
   gsl_matrix*u= gsl_matrix_alloc(2,1);
   gsl_matrix_set(u,0,0,acc_x);
   gsl_matrix_set(u,1,0,acc_y);
@@ -167,6 +168,7 @@ void kalman_compute_acc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double a
   
   //memset(&kalman_state, X , sizeof(state_t));
   //printf("kalman function %g\n", gsl_matrix_get(mu_old, 0, 0));
+  }
 }
 
 void kalman_compute_enc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double speed_x,const double speed_y, const double gps_x, const double gps_y,const double delay)
