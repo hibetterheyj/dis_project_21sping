@@ -3,6 +3,7 @@
 TODO:
 - [finished] set a goal position for thPIe controller with threshold
 - [finished] add obstacle avoidance from the code
+- [finished] aadd leader-based formation control
 - extend to five robot!
 - use relative pose instead of true pose
 - init with supervisor (add with randomization)
@@ -63,6 +64,7 @@ TODO:
 #define VERBOSE_ACC false       // Print accelerometer values
 #define VERBOSE_ACC_MEAN false  // Print accelerometer mean values
 #define VERBOSE_ENC false       // Print encoder values
+#define LEADER_MODE true // use leader mode
 
 /**************************************************/
 /* WEBOTS INITIALIZATION */
@@ -105,7 +107,7 @@ float ob_weight = 2.5;
 float bias_x[5] = {0, 0, 0, 0, 0};
 float bias_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
 
-double weight_coefficient = 0.01;
+double weight_coefficient = 5;
 
 /**************************************************/
 /* ROBOT VARIABLES INITIALIZATION */
@@ -455,8 +457,21 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	printf("Error (x, y) =  (%f, %f)\n", err[0], err[1]);
 	printf ("X-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][0], goal_speed[0]);
 	printf ("Y-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][1], goal_speed[1]);
-	final_speed[robot_id][0] = speed[robot_id][0] + goal_speed[0];
-	final_speed[robot_id][1] = -speed[robot_id][1] - goal_speed[1];
+
+        	if (LEADER_MODE == true){
+				if (robot_id % 5 == 0){
+				final_speed[robot_id][0] = goal_speed[0];
+				final_speed[robot_id][1] = - goal_speed[1];
+				}
+				else{
+					final_speed[robot_id][0] = speed[robot_id][0];
+					final_speed[robot_id][1] = - speed[robot_id][1];
+				}
+        	}
+        	else {
+				final_speed[robot_id][0] = speed[robot_id][0] + goal_speed[0];
+				final_speed[robot_id][1] = -speed[robot_id][1] - goal_speed[1];
+			}
 	// printf ("speed and angle is: (%f, %f) %f\n", speed[robot_id][0], speed[robot_id][1],true_position[robot_id][2]);
 	//printf ("Current speed of agent %d (x, y): (%f, %f) \n", robot_id, speed[robot_id][0], speed[robot_id][1]);
 
