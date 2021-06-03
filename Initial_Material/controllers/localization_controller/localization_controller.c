@@ -28,7 +28,7 @@
 #define VERBOSE_GPS false        // Print GPS values
 #define VERBOSE_ACC false       // Print accelerometer values
 #define VERBOSE_ACC_MEAN false  // Print accelerometer mean values
-#define VERBOSE_POSE true      // Print pose values
+#define VERBOSE_POSE false      // Print pose values
 #define VERBOSE_ENC false       // Print encoder values
 
 typedef struct 
@@ -49,7 +49,7 @@ static pose_t         _pose, _odo_acc, _odo_enc, _speed_enc;
 static pose_t         _pose_origin = {0, 0, 0};
 double last_gps_time_s = 0.0f;
 double last_gps_send_time_s = 0.0f;
-double message[8] ;
+double message[10] ;
 static FILE *fp;
 static gsl_matrix*Cov_acc;
 static gsl_matrix*X_acc;
@@ -346,5 +346,15 @@ void send_mea() {
   message[5] = _odo_enc.y;
   message[6] = gsl_matrix_get(X_acc,0,0);
   message[7] = gsl_matrix_get(X_acc,1,0);
-  wb_emitter_send(emitter,message,8*sizeof(double)); 
+  message[8] = gsl_matrix_get(X_enc,0,0);
+  message[9] = gsl_matrix_get(X_enc,1,0);
+  
+   printf("\n sent \n");
+    printf("recevier time: %g \n",time_now_s);
+    printf("est: %g %g \n",message[0],message[1]);
+    printf("est: %g %g \n",message[2],message[3]);
+    printf("est: %g %g \n",message[4],message[5]);
+    printf("est: %g %g \n",message[6],message[7]);
+    printf("est: %g %g \n",message[8],message[9]);
+  wb_emitter_send(emitter,message,10*sizeof(double)); 
 }

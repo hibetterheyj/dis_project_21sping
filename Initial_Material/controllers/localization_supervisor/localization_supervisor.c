@@ -17,7 +17,7 @@ WbDeviceTag receiver;	// Handle for the receiver node
 
 float pos_origin[3] = {-2.9, 0, 0};
 float pos_true[3];
-float pos_est[8] ; //0-1 is pos by gps, 2-3 is by acc, 4-5 is by encoder
+float pos_est[10] ; //0-1 is pos by gps, 2-3 is by acc, 4-5 is by encoder
 float err_loc[4] = {0,0,0}; //metrics for gps, acc and encoder
 float avg_err_loc[4] = {0,0,0}; //average localization error
 float pos_true_prev[2] = {-2.9, 0}; //previous position of rob (the estimate we receive is one step later)
@@ -49,13 +49,14 @@ void receive_inf(){
     for (i=0;i<8;i++){
       pos_est[i] = p[i];
     }
-    // double time_now_s = wb_robot_get_time();
-    // printf("message: %d \n",message[8]);
-    // printf("recevier time: %g \n",time_now_s);
-    // printf("est: %g %g \n",pos_est[0],pos_est[1]);
-    // printf("est: %g %g \n",pos_est[2],pos_est[3]);
-    // printf("est: %g %g \n",pos_est[4],pos_est[5]);
-    // printf("est: %g %g \n",pos_est[6],pos_est[7]);
+    double time_now_s = wb_robot_get_time();
+    printf("\n recieved \n");
+    printf("recevier time: %g \n",time_now_s);
+    printf("est: %g %g \n",pos_est[0],pos_est[1]);
+    printf("est: %g %g \n",pos_est[2],pos_est[3]);
+    printf("est: %g %g \n",pos_est[4],pos_est[5]);
+    printf("est: %g %g \n",pos_est[6],pos_est[7]);
+    printf("est: %g %g \n",pos_est[8],pos_est[9]);
     wb_receiver_next_packet(receiver);
   }
 }

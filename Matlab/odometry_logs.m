@@ -2,7 +2,7 @@ clear all
 close all
 clc
 
-fid= fopen('../Initial_Material/controllers/localization_library_test/logs.csv');
+fid= fopen('../Initial_Material/controllers/localization_controller/logs.csv');
 data= textscan(fid,"%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f","Delimiter",";","headerlines",1);
 
 pose_x= data{:,2};
@@ -28,7 +28,7 @@ kal_enc_y= data{:,22};
 figure;
 plot(pose_x,pose_y,"displayname","Pose");
 hold on
-plot(gps_x,gps_y,"displayname","GPS");
+plot(gps_x,-gps_y,"displayname","GPS");
 plot(odo_acc_x,odo_acc_y,"displayname","ACC");
 plot(odo_enc_x,odo_enc_y,"displayname","ENC");
 plot(kal_acc_x,kal_acc_y,"displayname","Kalman ACC");
@@ -45,8 +45,8 @@ enc_left= data{:,12};
 time= data{:,1};
 time= time;
 
-[X, Cov]= kalman_function(acc_1,acc_0,pose_x,pose_y,time, pose_x, pose_y, pose_head, odo_acc_head)
-[X, Cov]= kalman_function2(enc_left,enc_right,pose_x,pose_y,time, pose_x, pose_y, pose_head, pose_head)
+%[X, Cov]= kalman_function(acc_1,acc_0,pose_x,pose_y,time, pose_x, pose_y, pose_head, odo_acc_head)
+%[X, Cov]= kalman_function2(enc_left,enc_right,pose_x,pose_y,time, pose_x, pose_y, pose_head, pose_head)
 
 % figure;
 % subplot(3, 1, 1); 
