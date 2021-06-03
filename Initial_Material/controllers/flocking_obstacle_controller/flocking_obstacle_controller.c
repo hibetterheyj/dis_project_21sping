@@ -36,16 +36,16 @@
 #define VERBOSE true // Print diagnosis information
 
 #define RULE1_THRESHOLD     0.2   // Threshold to activate aggregation rule. default 0.20
-#define RULE1_WEIGHT        (1.5/10)	   // Weight of aggregation rule. default 0.6/10
+#define RULE1_WEIGHT        (2.0/10)	   // Weight of aggregation rule. default 0.6/10
 
 #define RULE2_THRESHOLD     0.15   // Threshold to activate dispersion rule. default 0.15
 #define RULE2_WEIGHT        (0.02/10)	   // Weight of dispersion rule. default 0.02/10
 
 #define RULE3_WEIGHT        (1.0/10)   // Weight of consistency rule. default 1.0/10
 
-#define MIGRATION_WEAKEN_THRESHOLD     0.8   // Min. distance w/o migration weakening penalty
+#define MIGRATION_WEAKEN_THRESHOLD     1.0   // Min. distance w/o migration weakening penalty
 #define MIGRATION_FREEZE_THRESHOLD     0.2   // Slow down the robot if it's within this distance to migration destination
-#define MIGRATION_WEIGHT    (0.8/10)   // Weight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_WEIGHT    (1.0/10)   // Weight of attraction towards the common goal. default 0.01/10
 
 #define MIGRATORY_URGE 1 // Tells the robots if they should just go forward or move towards a specific migratory direction
 
@@ -413,7 +413,7 @@ static void reset() {
 	}
   printf("Reset: robot %d\n",robot_id_u);
         
-  migr[0] = my_position[0] - MIGRATORY_DEST_X;
+  migr[0] = my_position[0] + MIGRATORY_DEST_X;
   migr[1] = my_position[1] + MIGRATORY_DEST_Z;
 }
 
@@ -447,11 +447,12 @@ void update_self_motion(int msl, int msr) {
 	// Update position
 	// my_position[0] += dx;
 	// my_position[1] += dz;
-	my_position[2] += dtheta;
+	// my_position[2] += dtheta;
 
 	// Use KF results
 	my_position[0] = gsl_matrix_get(X_acc,1,0);
 	my_position[1] = gsl_matrix_get(X_acc,0,0);
+	my_position[2] = _odo_enc.heading;
 
 	// Debug, use ground-truth position
 	// my_position[0] = -true_position[robot_id][1];
@@ -462,10 +463,13 @@ void update_self_motion(int msl, int msr) {
 	if (my_position[2] > 2*M_PI) my_position[2] -= 2.0*M_PI;
 	if (my_position[2] < 0) my_position[2] += 2.0*M_PI;
 
+	if (_odo_enc.heading > 2*M_PI) _odo_enc.heading -= 2.0*M_PI;
+	if (_odo_enc.heading < 0) _odo_enc.heading += 2.0*M_PI;
+
 	if (VERBOSE){
 		printf("Robot: %d     ", robot_id);
 		printf("Self-estimated X: %.2f, Z: %.2f, Theta: %.4f      ", my_position[0], my_position[1], my_position[2]);
-		printf("KF results: X: %.2f, Z: %.2f, Theta: N/A      ", gsl_matrix_get(X_acc,1,0), gsl_matrix_get(X_acc,0,0));
+		printf("KF results: X: %.2f, Z: %.2f, Theta: %.4f      ", gsl_matrix_get(X_acc,1,0), gsl_matrix_get(X_acc,0,0), _odo_enc.heading);
 		printf("Ground-truth: X: %.2f, Z: %.2f, Theta: %.4f     \n", -true_position[robot_id][1], true_position[robot_id][0], true_position[robot_id][2]);	
 	}
 }
@@ -579,8 +583,13 @@ void reynolds_rules() {
 		printf("Dist to migration destination: %g, strength: %g \n", dist_to_migration, migration_strength);
 		if (migration_strength > 0){
 			float migr_x, migr_y;
-			migr_x = -(migr[0]-my_position[0]) * MIGRATION_WEIGHT;
-			migr_y = (migr[1]-my_position[1]) * MIGRATION_WEIGHT;
+			// migr_x = -(migr[0]-my_position[0]) * MIGRATION_WEIGHT;
+			// migr_y = (migr[1]-my_position[1]) * MIGRATION_WEIGHT;
+
+			float theta_migr = atan2(migr[0]-my_position[0], migr[1]-my_position[1]);
+			float theta_dist = my_position[2] - theta_migr;
+			migr_x = -dist_to_migration * sinf(theta_dist) * MIGRATION_WEIGHT;
+			migr_y = dist_to_migration * cosf(theta_dist) * MIGRATION_WEIGHT;
 
 			printf("migr[0]: %g, my_position[0]: %g      ", migr[0], my_position[0]);
 			printf("migr[1]: %g, my_position[1]: %g      ", migr[1], my_position[1]);
@@ -691,7 +700,7 @@ int main(){
 	//initialize everything
   int time_step = TIME_STEP;
   printf("Detected timestep: %d \n", time_step);
-  init_position(time_step, my_position[1], my_position[0], my_position[2]); // initialize localization variables
+  init_position(time_step, my_position[1], -my_position[0], my_position[2]); // initialize localization variables
 
 	msl = 0; msr = 0; 
 	max_sens = 0; 
