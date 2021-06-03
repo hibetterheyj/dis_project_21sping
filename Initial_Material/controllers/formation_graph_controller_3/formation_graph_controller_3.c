@@ -48,8 +48,8 @@ TODO:
 /* Formation parameters */
 // #define D                    0.1      // Distance between robots
 // graph-based control
-#define FLOCK_SIZE	  2	  // Size of flock
-#define EDGE_SIZE	  1	  // Size of flock
+#define FLOCK_SIZE	  3	  // Size of flock
+#define EDGE_SIZE	  3	  // Size of flock
 #define AXLE_LENGTH          0.052     // Distance between wheels of robot
 #define SPEED_UNIT_RADS      0.0628    // Conversion factor between speed unit to radian per second
 #define WHEEL_RADIUS         0.0205    // Wheel radius in meters
@@ -99,7 +99,7 @@ float THRESHOLD=0.05;	// Convergence threshold
 // int Interconn[16] = {-5,-15,-20,6,4,6,3,5,4,4,6,-18,-15,-5,5,3};
 int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18};
 // weight for generated obstacle speed
-float ob_weight = 4;
+float ob_weight = 2.5;
 
 // bias vector
 float bias_x[5] = {0, 0, 0, 0, 0};
@@ -497,26 +497,23 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 int main(){
 	/* Variables setup */
 	// Incidence Matrix V (FLOCK_SIZE) xE
-	gsl_matrix * incidence  = gsl_matrix_calloc (FLOCK_SIZE, EDGE_SIZE);
+	//gsl_matrix * incidence  = gsl_matrix_calloc (FLOCK_SIZE, EDGE_SIZE);
+	double incidence32[] = {-1, 0,
+	                                        1,  -1,
+	                                        0,  1};
+	double incidence33[] = {-1, 0,  1,
+			       1, -1,  0,
+			       0,  1, -1};
+	//gsl_matrix_view incidence_view  = gsl_matrix_view_array(incidence32, 3, 2);
+	gsl_matrix_view incidence_view  =  gsl_matrix_view_array(incidence33, 3, 3);
 	// Weight Matrix E x E
 	gsl_matrix * weight  = gsl_matrix_alloc (EDGE_SIZE, EDGE_SIZE);
-	// Laplacian Matrix VxV I * W * I^T
-	gsl_matrix * laplacian  = gsl_matrix_alloc (FLOCK_SIZE, FLOCK_SIZE);
-	// init laplacian for the robot
-	// In Figure 7, we have linked two vehicles using the above
-	// decentralized law with the incidence matrix I = [1, −1]T
-	// and the weight matrix W = [1].
-	// be careful when setting incidence
-	gsl_matrix_set(incidence, 0, 0, 1.0);
-	gsl_matrix_set(incidence, 1, 0, -1.0);
 	compute_weight(weight, weight_coefficient, EDGE_SIZE);
 	printf ("weight_coefficient = %g\n", weight_coefficient);
-	compute_laplacian(incidence, weight, laplacian);
 
-	// for (int i = 0; i <2; i++)
-                  // for (int j = 0; j < 2; j++)
-                      // printf ("laplacian(%d,%d) = %g\n", i, j,
-                              // gsl_matrix_get (laplacian, i, j));
+	// Laplacian Matrix VxV I * W * I^T
+	gsl_matrix * laplacian  = gsl_matrix_alloc (FLOCK_SIZE, FLOCK_SIZE);
+	compute_laplacian(&incidence_view.matrix, weight, laplacian);
 
 	int msl=0, msr=0;                      // motor speed left and right
 	/*Webots 2018b*/
