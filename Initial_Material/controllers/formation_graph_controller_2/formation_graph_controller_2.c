@@ -404,7 +404,6 @@ void update_self_motion_naive(int msl, int msr) {
 	prev_err[0] = err[0]; prev_err[1] = err[1];
 	// err[0] = goal_pos[0] - my_position[0];
 	// err[1] = goal_pos[1] - my_position[1];
-
 	err[0] = goal_pos[0] - true_position[robot_id][0];
 	err[1] = (goal_pos[1] - true_position[robot_id][1]);  // TODO: y is different from x axis
 	printf("x_err = x_goal - x (%f = %f - %f)\n", err[0], goal_pos[0], true_position[robot_id][0]);
@@ -487,7 +486,6 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	printf ("expexted speed %d, %d \n",*msl, *msr);
                  // fix bugs in limit velocity
 	limit_vel(msl, msr, MAX_SPEED);
-
 	printf ("limited speed %d, %d \n",*msl, *msr);
 	// printf ("range and bearing is: (%f, %f) \n",range, bearing);
 	//printf ("Current speed (msl, msr) of agent %d: (%d, %d) \n", robot_id, msl, msr);
