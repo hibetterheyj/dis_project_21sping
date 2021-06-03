@@ -49,7 +49,7 @@ static pose_t         _pose, _odo_acc, _odo_enc, _speed_enc;
 static pose_t         _pose_origin = {0, 0, 0};
 double last_gps_time_s = 0.0f;
 double last_gps_send_time_s = 0.0f;
-double message[10] ;
+float message[10] ;
 static FILE *fp;
 static gsl_matrix*Cov_acc;
 static gsl_matrix*X_acc;
@@ -349,12 +349,12 @@ void send_mea() {
   message[8] = gsl_matrix_get(X_enc,0,0);
   message[9] = gsl_matrix_get(X_enc,1,0);
   
-   printf("\n sent \n");
-    printf("recevier time: %g \n",time_now_s);
-    printf("est: %g %g \n",message[0],message[1]);
-    printf("est: %g %g \n",message[2],message[3]);
-    printf("est: %g %g \n",message[4],message[5]);
-    printf("est: %g %g \n",message[6],message[7]);
-    printf("est: %g %g \n",message[8],message[9]);
-  wb_emitter_send(emitter,message,10*sizeof(double)); 
+   // printf("\n sent \n");
+    // printf("recevier time: %g \n",time_now_s);
+    // printf("est: %g %g \n",message[0],message[1]);
+    // printf("est: %g %g \n",message[2],message[3]);
+    // printf("est: %g %g \n",message[4],message[5]);
+    // printf("est: %g %g \n",message[6],message[7]);
+    // printf("est: %g %g \n",message[8],message[9]);
+  wb_emitter_send(emitter,message,10*sizeof(float)); 
 }
