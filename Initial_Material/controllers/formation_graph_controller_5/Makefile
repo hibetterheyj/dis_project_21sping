@@ -72,7 +72,10 @@ C_SOURCES = formation_graph_controller_5.c ../localization_library_test/localiza
 # https://stackoverflow.com/questions/714100/os-detecting-makefile
 UNAME := $(shell uname)
 ifeq ($(UNAME), Linux)
-	LIBRARIES = -lm -lgsl -lgslcblas
+	#LIBRARIES = -lm -lgsl -lgslcblas
+	# https://stackoverflow.com/questions/22222666/error-while-loading-shared-libraries-libgsl-so-0-cannot-open-shared-object-fil/37407181
+	INCLUDE = -I"/home/yhe/gsl/include"
+	LIBRARIES = -L"/home/yhe/gsl/lib" -lm -lgsl -lgslcblas
 else
 	INCLUDE = -I"C:\msys64\mingw64\include"
 	LIBRARIES = -L"C:\msys64\mingw64\lib" -llibgsl
