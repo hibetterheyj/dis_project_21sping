@@ -20,9 +20,8 @@ TODO:
 
 /* webots library */
 #include <webots/robot.h>
-/*Webots 2018b*/
 #include <webots/motor.h>
-/*Webots 2018b*/
+#include <webots/gps.h>
 #include <webots/differential_wheels.h>
 #include <webots/distance_sensor.h>
 #include <webots/position_sensor.h>
@@ -64,18 +63,19 @@ TODO:
 #define VERBOSE_ACC false       // Print accelerometer values
 #define VERBOSE_ACC_MEAN false  // Print accelerometer mean values
 #define VERBOSE_ENC false       // Print encoder values
-#define LEADER_MODE false // use leader mode
+#define LEADER_MODE true // use leader mode
 
 /**************************************************/
 /* WEBOTS INITIALIZATION */
 /**************************************************/
 /*Webots 2018b*/
-WbDeviceTag left_motor; //handler for left wheel of the robot
-WbDeviceTag right_motor; //handler for the right wheel of the robot
+WbDeviceTag dev_gps;
+WbDeviceTag left_motor;
+WbDeviceTag right_motor;
 /*Webots 2018b*/
-WbDeviceTag ds[NB_SENSORS];           // Handle for the infrared distance sensors
-WbDeviceTag receiver;		// Handle for the receiver node
-WbDeviceTag emitter;		// Handle for the emitter node
+WbDeviceTag ds[NB_SENSORS];
+WbDeviceTag receiver;
+WbDeviceTag emitter;
 // sensor for localization
 WbDeviceTag dev_left_encoder;
 WbDeviceTag dev_right_encoder;
@@ -83,7 +83,7 @@ WbDeviceTag dev_acc;
 
 // init and goal position
 // from -1.9 -> 2.1 = 4
-float goal_distance[2] = {5.0, 0.0};
+float goal_distance[2] = {5.5, 0.0};
 float goal_pos[2];
 // pi(d) control towards goal
 float err[2];
@@ -131,8 +131,8 @@ static measurement_t  _meas;
 static pose_t _pose, _odo_acc, _odo_enc, _speed_enc;
 static pose_t _pose_origin = {0, 0, 0}; // do not touch.
 
-// only for test, true localization from supervisor
-// float true_position[FLOCK_SIZE][3];
+// kalam filter matrices for covariances and state (for accelerometer and encoder based kalman)
+static gsl_matrix*Cov_acc, *X_acc, *Cov_enc, *X_enc;
 
 /**************************************************/
 /* UTILITY FUNCTIONS */
@@ -158,9 +158,9 @@ void compute_weight(gsl_matrix * weight, double weight_coefficient, int edge_siz
 
 /* Compute laplacian matrix, I * W * I^T */
 void compute_laplacian(gsl_matrix * incidence, gsl_matrix * weight, gsl_matrix * laplacian){
-    // temp matrix (FLOCK_SIZE) xE
-	int edge_size = num_rows(weight);
-    gsl_matrix * temp  = gsl_matrix_alloc (FLOCK_SIZE, edge_size);
+    int edge_size = num_rows(weight);
+    int flock_size = num_rows(laplacian);
+    gsl_matrix * temp  = gsl_matrix_alloc (flock_size, edge_size);
     gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
                     1.0, incidence, weight,
                     0.0, temp);
@@ -223,16 +223,57 @@ float limit_angle(float angle) {
 	return angle;
 }
 
+float limit_rad(float rad) {
+	while(angle > 2*M_PI || angle < 0){
+		if (angle > 2*M_PI){
+			angle -= 2*M_PI;
+		}
+		else if (angle < 0){
+			angle += 2*M_PI;
+		}
+	}
+	return angle;
+}
+
 /**************************************************/
 /* ROBOT-RELATED FUNCTIONS */
 /**************************************************/
+/* initialization of kalman filter input and output variables */
+// already defined in localization.c
+// void init_state() {
+	/* states variables for acc based kalman filter */
+	// Cov_acc = gsl_matrix_calloc(4, 4);
+	// gsl_matrix_set(Cov_acc,0,0,0.001);
+	// gsl_matrix_set(Cov_acc,1,1,0.001);
+	// gsl_matrix_set(Cov_acc,2,2,0.001);
+	// gsl_matrix_set(Cov_acc,3,3,0.001);
+	// X_acc= gsl_matrix_calloc(4, 1);
+	// gsl_matrix_set(X_acc,0,0,_pose.x);
+	// gsl_matrix_set(X_acc,1,0,_pose.y);
+
+	/* state variables for enc based kalman */
+	// Cov_enc = gsl_matrix_calloc(2, 2);
+	// gsl_matrix_set(Cov_enc,0,0,0.001);
+	// gsl_matrix_set(Cov_enc,1,1,0.001);
+	// X_enc= gsl_matrix_calloc(2, 1);
+	// gsl_matrix_set(X_enc,0,0,_pose.x);
+	// gsl_matrix_set(X_enc,1,0,_pose.y);
+// }
+
 /* Initialization sensor, motor, receiver, etc. */
 void init_device(int time_step){
+	robot_name=(char*) wb_robot_get_name();
+
+	// gps
+	dev_gps = wb_robot_get_device("gps");
+	wb_gps_enable(dev_gps, 1000);
 	// motor
 	left_motor = wb_robot_get_device("left wheel motor");
 	right_motor = wb_robot_get_device("right wheel motor");
 	wb_motor_set_position(left_motor, INFINITY);
 	wb_motor_set_position(right_motor, INFINITY);
+	wb_motor_set_velocity(left_motor, 0.0);
+	wb_motor_set_velocity(right_motor, 0.0);
 	// encoder
 	dev_left_encoder = wb_robot_get_device("left wheel sensor");
 	dev_right_encoder = wb_robot_get_device("right wheel sensor");
@@ -251,7 +292,6 @@ void init_device(int time_step){
 		ds[i]=wb_robot_get_device(s);	// the device name is specified in the world file
 		s[2]++;				// increases the device number
 	}
-	robot_name=(char*) wb_robot_get_name();
 
 	for(i=0;i<NB_SENSORS;i++)
 		wb_distance_sensor_enable(ds[i],64);
@@ -265,11 +305,35 @@ void init_device(int time_step){
 		initialized[i] = 0;		  // Set initialization to 0 (= not yet initialized)
 	}
 
-	printf("Reset: robot %d\n",robot_id_u);
+	printf("Initialized robot %d\n",robot_id_u);
+}
+
+void init_position_kf(int time_step, double x_init, double z_init, double h_init)
+{
+	// initialize the device using init_device(ts) at first
+
+	_pose.x = x_init;
+	_pose.y = z_init;
+	_pose.heading = h_init;
+	_pose_origin.x= _pose.x;
+	_pose_origin.y= _pose.y;
+	_odo_acc.x= _pose.x;
+	_odo_acc.y= _pose.y;
+	_odo_acc.heading= _pose.heading;
+	_odo_enc.x= _pose.x;
+	_odo_enc.y= _pose.y;
+	_odo_enc.heading= _pose.heading;
+
+	odo_reset(time_step,&_pose_origin);
+	kalman_reset(time_step);
+	init_state(); //initial state variables for kalman filter
+	//initial mean acceleration (as calibration takes place when the robot moves at cst speed)
+	//improves acceleration odometry in the beginning
+	controller_compute_initial_mean_acc();
 }
 
 /* Initialize robot's position */
-void initial_pos_local(void){
+void initial_pos_local(){
 	while (initialized[robot_id] == 0) {
 		// Initialize self position with pre-defined array
 		my_position[0] = init_x[robot_id];  // x-position
@@ -376,8 +440,25 @@ void update_laplacian(void){
   printf("TODO");
 }
 
-/* Advanced method to updates robot position with wheel speeds */
-// void update_self_motion()
+/* Advanced method to updates robot position with Kalman filter */
+void update_self_motion(int msl, int msr) {
+	float theta = my_position[2];
+
+	// Compute deltas of the robot
+	float dr = (float)msr * SPEED_UNIT_RADS * WHEEL_RADIUS * DELTA_T;
+	float dl = (float)msl * SPEED_UNIT_RADS * WHEEL_RADIUS * DELTA_T;
+	float du = (dr + dl)/2.0;
+	float dtheta = (dr - dl)/AXLE_LENGTH;
+
+	// Compute deltas in the environment
+	float dx = du * sinf(theta);  // lateral movement
+	float dz = du * cosf(theta);  // longitudinal movement
+
+	// Use KF results
+	my_position[0] = gsl_matrix_get(X_acc,1,0);
+	my_position[1] = gsl_matrix_get(X_acc,0,0);
+	my_position[2] = _odo_enc.heading;
+}
 
 /* Naive method to updates robot position with wheel speeds */
 void update_self_motion_naive(int msl, int msr) {
@@ -413,7 +494,7 @@ void update_self_motion_naive(int msl, int msr) {
 }
 
 /* Compute wheel speeds arcording to graph */
-void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * laplacian){
+void compute_wheel_speeds(int *msl, int *msr, gsl_matrix * laplacian){
 	// x'= -L(x-b), Same for y
 	//laplacian[robot_id:] * (x-b)
 	// init with speed every time with zero
@@ -498,10 +579,9 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 	// Convert to wheel speeds!
 	*msl = (u - AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u + AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
-	printf ("expexted speed %d, %d \n",*msl, *msr);
-                 // fix bugs in limit velocity
+	// printf ("expexted speed %d, %d \n",*msl, *msr);
 	limit_vel(msl, msr, MAX_SPEED);
-	printf ("limited speed %d, %d \n",*msl, *msr);
+	// printf ("limited speed %d, %d \n",*msl, *msr);
 	// printf ("range and bearing is: (%f, %f) \n",range, bearing);
 	//printf ("Current speed (msl, msr) of agent %d: (%d, %d) \n", robot_id, msl, msr);
 }
@@ -511,10 +591,12 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr, gsl_matrix * lap
 /*************************/
 int main(){
 	/* Variables setup */
+	// graph-based controller matrix
+	gsl_matrix_view incidence_view;
+	gsl_matrix * weight  = gsl_matrix_alloc (EDGE_SIZE, EDGE_SIZE);
+	gsl_matrix * laplacian  = gsl_matrix_alloc (FLOCK_SIZE, FLOCK_SIZE);
 	// Incidence Matrix V (FLOCK_SIZE) xE
-	//gsl_matrix * incidence  = gsl_matrix_calloc (FLOCK_SIZE, EDGE_SIZE);
-                 gsl_matrix_view incidence_view;
-                 if (EDGE_SIZE == 4){
+	if (EDGE_SIZE == 4){
 	    double incidence54[] = {-1, 0, 0, 0,
 	                                        1,  -1, 0, 0,
 	                                        0,  1, -1, 0,
@@ -525,21 +607,35 @@ int main(){
 	    double incidence57[] = {-1, 0, 0, 0, 1, 0, 0,
 	                                        1,  -1, 0, 0, 0, 1, 0,
 	                                        0,  1, -1, 0, -1, 0, 1,
-	                                        0,  0,  1, -1, 0, -1, 0, 
+	                                        0,  0,  1, -1, 0, -1, 0,
 	      		      0,  0,  0, 1, 0, 0, -1};
 	    incidence_view  =  gsl_matrix_view_array(incidence57, 5, 7);
+	} else if(EDGE_SIZE == 9){
+	    double incidence59[] = {-1, 0,  0,  0,   1,  0,  0, -1, 0,
+	                                             1, -1, 0,  0,   0,  1,  0,  0, -1,
+	                                             0,  1, -1,  0, -1,  0,  1, 0, 0,
+	                                             0,  0,  1, -1,  0, -1,  0, 1, 0,
+	      		           0,  0,  0,  1,   0,  0, -1, 0, 1};
+	    incidence_view  =  gsl_matrix_view_array(incidence59, 5, 9);
+	} else if(EDGE_SIZE == 10){
+	    double incidence510[] = {-1, 0,  0,  0,   1,  0,  0, -1, 0, 1,
+	                                             1, -1, 0,  0,   0,  1,  0,  0, -1, 0,
+	                                             0,  1, -1,  0, -1,  0,  1, 0, 0, 0, 0,
+	                                             0,  0,  1, -1,  0, -1,  0, 1, 0, 0,
+	      		           0,  0,  0,  1,   0,  0, -1, 0, 1, -1};
+	    incidence_view  =  gsl_matrix_view_array(incidence510, 5, 10);
+	} else{
+	    printf("Only supported with 4/7/9/10 edges connection!\n");
 	}
-	//
+
 	// Weight Matrix E x E
-	gsl_matrix * weight  = gsl_matrix_alloc (EDGE_SIZE, EDGE_SIZE);
 	compute_weight(weight, weight_coefficient, EDGE_SIZE);
 	printf ("weight_coefficient = %g\n", weight_coefficient);
 
 	// Laplacian Matrix VxV I * W * I^T
-	gsl_matrix * laplacian  = gsl_matrix_alloc (FLOCK_SIZE, FLOCK_SIZE);
 	compute_laplacian(&incidence_view.matrix, weight, laplacian);
-
-	int msl=0, msr=0;                      // motor speed left and right
+	// motor speed left and right
+	int msl=0, msr=0;
 	/*Webots 2018b*/
 	float msl_w, msr_w;
 	/*Webots 2018b*/
@@ -551,14 +647,16 @@ int main(){
 	/* Webots init, device, and odom setup */
 	wb_robot_init();
 	int time_step = wb_robot_get_basic_time_step();
-	init_device(time_step);                          // Initialization
 	//odo_reset(time_step);
-	//if (INIT_TYPE_LOCAL)
-	initial_pos_local(); // Initializing the robot's position from local settings
-	//initial_pos_super(); // Initializing the robot's position from supervisor
 
-                 // initialize localization variables
-	init_position(time_step, my_position[0], my_position[1], my_position[2]);
+	// Initializing the robot's position from local settings
+	initial_pos_local();
+
+	// initialize device
+	init_device(time_step);
+
+	// initialize localization variables
+	init_position_kf(time_step, my_position[0], my_position[1], my_position[2]);
 
 	//improves acceleration odometry in the beginning
 	controller_compute_initial_mean_acc();
@@ -595,24 +693,31 @@ int main(){
 		// Compute self position & speed
 		// 1. update self's position from kalman filter/ encoder info
 		// TODO: cannot receive correct data from sensors
-		controller_get_encoder(); // encoder
+		// controller_get_encoder(); // encoder
 		//compute odometries and kalman filter based localization
-		odo_compute_encoders(&_odo_enc, &_speed_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
+		// odo_compute_encoders(&_odo_enc, &_speed_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
 
 		// from local calculation !!! large error
 		prev_my_position[0] = my_position[0];
 		prev_my_position[1] = my_position[1];
-		update_self_motion_naive(msl,msr);
-		speed[robot_id][0] = (1/DELTA_T)*(my_position[0]-prev_my_position[0]);
-		speed[robot_id][1] = (1/DELTA_T)*(my_position[1]-prev_my_position[1]);
+
+		// update_self_motion_naive(msl, msr);
+		update_self_motion(msl,msr);
+		// compute localization with localization library
+		compute_position(time_step);
 
 		// 2. update others position from receiver
-		compute_relative_pos();
+		// receive ping message
+		// process_received_ping_messages();
+		// compute_relative_pos(); //mainly read true position
+
+		speed[robot_id][0] = (1/DELTA_T)*(my_position[0]-prev_my_position[0]);
+		speed[robot_id][1] = (1/DELTA_T)*(my_position[1]-prev_my_position[1]);
 
 		// III. Update with graph-based control
 		// update_laplacian(); // update with range and bearing position
 		if (cnt != 0){
-			compute_wheel_speeds(0, 0, &msl, &msr, laplacian);
+			compute_wheel_speeds(&msl, &msr, laplacian);
 			// printf("Speed computed!\n");
 		}
 		else{
