@@ -36,17 +36,17 @@
 // ********** Tunable parameters **********
 #define VERBOSE true // Print diagnosis information
 
-#define RULE1_THRESHOLD     0.1   // Threshold to activate aggregation rule. default 0.20
-#define RULE1_WEIGHT        (1.0/10)	   // Weight of aggregation rule. default 0.6/10
+#define RULE1_THRESHOLD     0.2   // Threshold to activate aggregation rule. default 0.20
+#define RULE1_WEIGHT        (0.6/10)	   // Weight of aggregation rule. default 0.6/10
 
 #define RULE2_THRESHOLD     0.15   // Threshold to activate dispersion rule. default 0.15
 #define RULE2_WEIGHT        (0.00/10)	   // Weight of dispersion rule. default 0.02/10
 
-#define RULE3_WEIGHT        (1.0/10)   // Weight of consistency rule. default 1.0/10
+#define RULE3_WEIGHT        (0.2/10)   // Weight of consistency rule. default 1.0/10
 
-#define MIGRATION_WEAKEN_THRESHOLD     0.5   // Min. distance w/o migration weakening penalty
-#define MIGRATION_FREEZE_THRESHOLD     0.2   // Slow down the robot if it's within this distance to migration destination
-#define MIGRATION_WEIGHT    (0.6/10)   // Weight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_WEAKEN_THRESHOLD     0.6   // Min. distance w/o migration weakening penalty
+#define MIGRATION_FREEZE_THRESHOLD     0.25   // Slow down the robot if it's within this distance to migration destination
+#define MIGRATION_WEIGHT    (5.0/10)   // Weight of attraction towards the common goal. default 0.01/10
 
 #define MIGRATORY_URGE 1 // Tells the robots if they should just go forward or move towards a specific migratory direction
 
@@ -264,8 +264,8 @@ void controller_get_pose()
     _pose.y = -(_meas.gps[2]);
     _pose.heading = controller_get_heading();
   
-    if(VERBOSE_POSE)
-      printf("ROBOT pose : %g %g %g\n", _pose.x , _pose.y , RAD2DEG(_pose.heading));
+    // if(VERBOSE_POSE)
+    //   printf("ROBOT pose : %g %g %g\n", _pose.x , _pose.y , RAD2DEG(_pose.heading));
   }
 }
 
@@ -464,14 +464,14 @@ void update_self_motion(int msl, int msr) {
 	// Update position
 	// my_position[0] += dx;
 	// my_position[1] += dz;
-	// my_position[2] += dtheta;
+	my_position[2] += dtheta;
 
 	// Use KF results
 	my_position[0] = gsl_matrix_get(X_acc,1,0);
 	my_position[1] = gsl_matrix_get(X_acc,0,0);
-	my_position[2] = _odo_enc.heading;
-	// if (robot_id > SINGLE_FLOCK_SIZE)
-	// 	my_position[2] *= -1.0;
+	// my_position[2] = _odo_enc.heading;
+	// if (robot_id <= SINGLE_FLOCK_SIZE)
+	// 	my_position[2] += M_PI;
 
 	// Debug, use ground-truth position
 	// my_position[0] = -true_position[robot_id][1];
@@ -479,19 +479,19 @@ void update_self_motion(int msl, int msr) {
 	// my_position[2] = true_position[robot_id][2];
   
 	// Keep orientation within 0, 2pi
-	// float tmp = 2.0*M_PI;
 	my_position[2] = fmod(my_position[2], 2.0 * M_PI);
 	if (my_position[2] > 2*M_PI) my_position[2] -= 2.0*M_PI;
 	if (my_position[2] < 0) my_position[2] += 2.0*M_PI;
 
 
+	_odo_enc.heading = fmod(_odo_enc.heading, M_PI * 2.0);
 	if (_odo_enc.heading > 2*M_PI) _odo_enc.heading -= 2.0*M_PI;
 	if (_odo_enc.heading < 0) _odo_enc.heading += 2.0*M_PI;
 
 	if (VERBOSE){
-		printf("Robot: %d     ", robot_id);
-		printf("Self-estimated X: %.2f, Z: %.2f, Theta: %.4f      ", my_position[0], my_position[1], my_position[2]);
-		printf("KF results: X: %.2f, Z: %.2f, Theta: %.4f      ", gsl_matrix_get(X_acc,1,0), gsl_matrix_get(X_acc,0,0), _odo_enc.heading);
+		printf("Robot: %d  ", robot_id);
+		printf("ODO-dummy X: %.2f, Z: %.2f, Theta: %.4f, Theta-error: %.4f      ", my_position[0], my_position[1], my_position[2], fmod(ABS(my_position[2] - true_position[robot_id][2]), M_PI * 2));
+		printf("KF-ENC: X: %.2f, Z: %.2f, Theta: %.4f, Theta-error: %.4f      ", gsl_matrix_get(X_acc,1,0), gsl_matrix_get(X_acc,0,0), _odo_enc.heading, fmod(ABS(_odo_enc.heading - true_position[robot_id][2]), M_PI * 2.0));
 		printf("Ground-truth: X: %.2f, Z: %.2f, Theta: %.4f     \n", -true_position[robot_id][1], true_position[robot_id][0], true_position[robot_id][2]);	
 	}
 }
@@ -633,6 +633,11 @@ void reynolds_rules() {
 		  speed[robot_id][0] *= 0.001;
 		  speed[robot_id][1] *= 0.001;
 		}
+	}
+
+	if (robot_id < SINGLE_FLOCK_SIZE){
+		speed[robot_id][0] *= -1.0;
+		speed[robot_id][1] *= -1.0;
 	}
 }
 

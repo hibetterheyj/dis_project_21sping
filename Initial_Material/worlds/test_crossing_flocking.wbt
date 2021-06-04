@@ -232,16 +232,6 @@ DEF SUPERVISOR Robot {
   controller "overall_supervisor"
   supervisor TRUE
 }
-DEF SUPERVISOR Robot {
-  children [
-    DEF emitter Emitter {
-      channel 2
-    }
-  ]
-  name "super1"
-  controller "overall_supervisor"
-  supervisor TRUE
-}
 DEF epuck1 Robot {
   translation -0.1 0 -0.1
   rotation 0 1 0 1.57
