@@ -1907,7 +1907,7 @@ DEF epuck0 Robot {
       0 0 0
     ]
   }
-  controller "formation_leader"
+  controller "formation_graph_controller_5"
   cpuConsumption 1.11
 }
 DEF epuck1 Robot {
@@ -3289,7 +3289,7 @@ DEF epuck1 Robot {
       0 0 0
     ]
   }
-  controller "formation_follower"
+  controller "formation_graph_controller_5"
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
@@ -4671,7 +4671,7 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "formation_follower"
+  controller "formation_graph_controller_5"
   cpuConsumption 1.11
 }
 DEF epuck3 Robot {
@@ -6053,7 +6053,7 @@ DEF epuck3 Robot {
       0 0 0
     ]
   }
-  controller "formation_follower"
+  controller "formation_graph_controller_5"
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
@@ -7435,6 +7435,6 @@ DEF epuck4 Robot {
       0 0 0
     ]
   }
-  controller "formation_follower"
+  controller "formation_graph_controller_5"
   cpuConsumption 1.11
 }

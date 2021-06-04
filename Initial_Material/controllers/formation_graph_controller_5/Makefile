@@ -66,6 +66,18 @@
 ###-----------------------------------------------------------------------------
 
 ### Do not modify: this includes Webots global Makefile.include
+C_SOURCES = formation_graph_controller_5.c ../localization_library_test/localization.c ../localization_library_test/trajectories.c ../localization_library_test/odometry.c ../localization_library_test/kalman.c
+
+# yujie
+# https://stackoverflow.com/questions/714100/os-detecting-makefile
+UNAME := $(shell uname)
+ifeq ($(UNAME), Linux)
+	LIBRARIES = -lm -lgsl -lgslcblas
+else
+	INCLUDE = -I"C:\msys64\mingw64\include"
+	LIBRARIES = -L"C:\msys64\mingw64\lib" -llibgsl
+endif
+
 null :=
 space := $(null) $(null)
 WEBOTS_HOME_PATH=$(subst $(space),\ ,$(strip $(subst \,/,$(WEBOTS_HOME))))

@@ -3,8 +3,8 @@
 TODO:
 - [finished] set a goal position for thPIe controller with threshold
 - [finished] add obstacle avoidance from the code
-- [finished] aadd leader-based formation control
-- extend to five robot!
+- [finished] add leader-based formation control
+- [finished] extend to five robot!
 - use relative pose instead of true pose
 - init with supervisor (add with randomization)
 - control with odometry information
@@ -49,8 +49,8 @@ TODO:
 /* Formation parameters */
 // #define D                    0.1      // Distance between robots
 // graph-based control
-#define FLOCK_SIZE	  3	  // Size of flock
-#define EDGE_SIZE	  3	  // Size of flock
+#define FLOCK_SIZE	  5 // Size of formation
+#define EDGE_SIZE	  7 // Size of edges
 #define AXLE_LENGTH          0.052     // Distance between wheels of robot
 #define SPEED_UNIT_RADS      0.0628    // Conversion factor between speed unit to radian per second
 #define WHEEL_RADIUS         0.0205    // Wheel radius in meters
@@ -64,7 +64,7 @@ TODO:
 #define VERBOSE_ACC false       // Print accelerometer values
 #define VERBOSE_ACC_MEAN false  // Print accelerometer mean values
 #define VERBOSE_ENC false       // Print encoder values
-#define LEADER_MODE true // use leader mode
+#define LEADER_MODE false // use leader mode
 
 /**************************************************/
 /* WEBOTS INITIALIZATION */
@@ -513,14 +513,23 @@ int main(){
 	/* Variables setup */
 	// Incidence Matrix V (FLOCK_SIZE) xE
 	//gsl_matrix * incidence  = gsl_matrix_calloc (FLOCK_SIZE, EDGE_SIZE);
-	double incidence32[] = {-1, 0,
-	                                        1,  -1,
-	                                        0,  1};
-	double incidence33[] = {-1, 0,  1,
-			       1, -1,  0,
-			       0,  1, -1};
-	//gsl_matrix_view incidence_view  = gsl_matrix_view_array(incidence32, 3, 2);
-	gsl_matrix_view incidence_view  =  gsl_matrix_view_array(incidence33, 3, 3);
+                 gsl_matrix_view incidence_view;
+                 if (EDGE_SIZE == 4){
+	    double incidence54[] = {-1, 0, 0, 0,
+	                                        1,  -1, 0, 0,
+	                                        0,  1, -1, 0,
+	                                        0,  0,  1, -1,
+	      		      0,  0,  0, 1};
+	    incidence_view  = gsl_matrix_view_array(incidence54, 5, 4);
+	} else if(EDGE_SIZE == 7){
+	    double incidence57[] = {-1, 0, 0, 0, 1, 0, 0,
+	                                        1,  -1, 0, 0, 0, 1, 0,
+	                                        0,  1, -1, 0, -1, 0, 1,
+	                                        0,  0,  1, -1, 0, -1, 0, 
+	      		      0,  0,  0, 1, 0, 0, -1};
+	    incidence_view  =  gsl_matrix_view_array(incidence57, 5, 7);
+	}
+	//
 	// Weight Matrix E x E
 	gsl_matrix * weight  = gsl_matrix_alloc (EDGE_SIZE, EDGE_SIZE);
 	compute_weight(weight, weight_coefficient, EDGE_SIZE);
