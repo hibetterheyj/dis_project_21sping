@@ -12,7 +12,7 @@
 #define VERBOSE_flocking_metric true       // Print metrics of flocking
 #define VERBOSE_formation_metric false       // Print metrics of formation
 
-#define is_crossing false       // Change from different scenarios
+#define is_crossing true       // Change from different scenarios
 
 #define FLOCK_SIZE	2		// Number of robots in flock
 #define TIME_STEP	64		// [ms] Length of time step
