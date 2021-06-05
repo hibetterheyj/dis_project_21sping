@@ -54,11 +54,11 @@ float init_z[FLOCK_SIZE] = {-2.9, -2.9, -2.9, -2.9, -2.9};
 
 
 /********** Tunable parameters **********/
-#define VERBOSE true				// Print diagnosis information
+#define VERBOSE false				// Print diagnosis information
 #define VERBOSE_GPS false        	// Print GPS values
 #define VERBOSE_ACC false        	// Print accelerometer values
 #define VERBOSE_ACC_MEAN false   	// Print accelerometer mean values
-#define VERBOSE_POSE true       	// Print pose values
+#define VERBOSE_POSE false       	// Print pose values
 #define VERBOSE_ENC false      		// Print encoder values
 
 #define RULE1_THRESHOLD     0.262817		// Threshold to activate aggregation rule. default 0.20
@@ -184,7 +184,7 @@ static void reset() {
 	// Reading the robot's name. Pay attention to name specification when adding robots to the simulation!
 	sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
 	robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
-	my_position[0] = init_x[robot_id];
+	my_position[0] = -init_x[robot_id];
 	my_position[1] = init_z[robot_id];
 	migr[0] = my_position[0] + MIGRATORY_DEST_X;
 	migr[1] = my_position[1] + MIGRATORY_DEST_Z;
@@ -194,7 +194,7 @@ static void reset() {
 	if (POSITIONING_MODE < POS_ENC_KF || POSITIONING_MODE > POS_GT){
 		printf("The input POSITIONING_MODE %d is wrong! Reset to encoder+KF positioning!\n", POSITIONING_MODE);
 	}
-	init_position(TIME_STEP, my_position[1], -my_position[0], my_position[2]); // initialize localization variables
+	init_position(TIME_STEP, my_position[1], my_position[0], my_position[2]); // initialize localization variables
 }
 
 
@@ -390,21 +390,21 @@ void reynolds_rules() {
 		else
 			migration_strength = -1.0;
 
-		printf("Dist to migration destination: %g, strength: %g \n", dist_to_migration, migration_strength);
+		if (VERBOSE)
+			printf("Dist to migration destination: %g, strength: %g, ", dist_to_migration, migration_strength);
 		if (migration_strength > 0){
 			float migr_x, migr_y;
 			migr_x = -(migr[0]-my_position[0]) * MIGRATION_WEIGHT;
 			migr_y = (migr[1]-my_position[1]) * MIGRATION_WEIGHT;
 
-			printf("migr[0]: %g, my_position[0]: %g      ", migr[0], my_position[0]);
-			printf("migr[1]: %g, my_position[1]: %g      ", migr[1], my_position[1]);
-			printf("migr_x: %g, migr_y: %g \n", migr_x, migr_y);
+			if (VERBOSE){
+				printf("migr[0]: %g, my_position[0]: %g      ", migr[0], my_position[0]);
+				printf("migr[1]: %g, my_position[1]: %g      ", migr[1], my_position[1]);
+				printf("migr_x: %g, migr_y: %g \n", migr_x, migr_y);
+			}
 			speed[robot_id][0] += migr_x;
 			speed[robot_id][1] += migr_y;
 
-			float cap = 0.1;
-			speed[robot_id][0] *= cap > migration_strength ? cap : migration_strength;
-			speed[robot_id][1] *= cap > migration_strength ? cap : migration_strength;
 		}
 		else{
 			printf("Robot %d is stopped! \n", robot_id);
@@ -440,19 +440,19 @@ void process_received_ping_messages(void) {
 
 		// get true pos from supervisor, for debug only
 		inbuffer = (char*) wb_receiver_get_data(receiver);
-    if (inbuffer[0] != 'e'){
-      // printf("Robot %d \n",inbuffer[0]- '0');
-      int i = inbuffer[0]- '0';
-      sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
-      wb_receiver_next_packet(receiver);
-      true_position[i][2] += M_PI/2;
-      if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
-      if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
-    //   printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
-      continue;
-    }
+		if (inbuffer[0] != 'e'){
+			// printf("Robot %d \n",inbuffer[0]- '0');
+			int i = inbuffer[0]- '0';
+			sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
+			wb_receiver_next_packet(receiver);
+			true_position[i][2] += M_PI/2;
+			if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
+			if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
+			//   printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
+			continue;
+		}
 
-    // process relative measurements
+    	// process relative measurements
 		message_direction = wb_receiver_get_emitter_direction(receiver);
 		message_rssi = wb_receiver_get_signal_strength(receiver);
 
@@ -472,8 +472,14 @@ void process_received_ping_messages(void) {
 		relative_pos[other_robot_id][0] = range*cos(theta);  // relative x pos
 		relative_pos[other_robot_id][1] = -1.0 * range*sin(theta);   // relative y pos
 	
-		// if (VERBOSE)
-    	// 	printf("Robot %s, from robot %d, range %g, direction_x: %g, direction_y: %g, x: %g, z: %g, theta %g, my theta %g\n",robot_name,other_robot_id,range,x,y,relative_pos[other_robot_id][0],relative_pos[other_robot_id][1],-atan2(y,x)*180.0/3.141592,my_position[2]*180.0/3.141592);
+		if (VERBOSE){
+    		printf("Robot %s, from robot %d, range %g, direction_x: %g, direction_y: %g, x: %g, z: %g. \n",robot_name,other_robot_id,range,x,y,relative_pos[other_robot_id][0],relative_pos[other_robot_id][1]);
+			// float l2_error = sqrt(pow(relative_pos[other_robot_id][0] - (true_position[other_robot_id][0] - true_position[robot_id][0]), 2) 
+			// + pow(relative_pos[other_robot_id][1] - (true_position[other_robot_id][1] - true_position[robot_id][1]), 2));
+			// float l1_error = ABS(relative_pos[other_robot_id][0] - (true_position[other_robot_id][0] - true_position[robot_id][0])) 
+			// + ABS(relative_pos[other_robot_id][1] - (true_position[other_robot_id][1] - true_position[robot_id][1]));
+			// printf("This relative measurement error: L2: %.3f, L1: %.3f. \n", l2_error, l1_error);
+		}
 
 		relative_speed[other_robot_id][0] = relative_speed[other_robot_id][0]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][0]-prev_relative_pos[other_robot_id][0]);
 		relative_speed[other_robot_id][1] = relative_speed[other_robot_id][1]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][1]-prev_relative_pos[other_robot_id][1]);		
