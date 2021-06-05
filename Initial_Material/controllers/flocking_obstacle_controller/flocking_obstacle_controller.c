@@ -184,7 +184,7 @@ static void reset() {
 	// Reading the robot's name. Pay attention to name specification when adding robots to the simulation!
 	sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
 	robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
-	my_position[0] = init_x[robot_id];
+	my_position[0] = -init_x[robot_id];
 	my_position[1] = init_z[robot_id];
 	migr[0] = my_position[0] + MIGRATORY_DEST_X;
 	migr[1] = my_position[1] + MIGRATORY_DEST_Z;
@@ -194,7 +194,7 @@ static void reset() {
 	if (POSITIONING_MODE < POS_ENC_KF || POSITIONING_MODE > POS_GT){
 		printf("The input POSITIONING_MODE %d is wrong! Reset to encoder+KF positioning!\n", POSITIONING_MODE);
 	}
-	init_position(TIME_STEP, my_position[1], -my_position[0], my_position[2]); // initialize localization variables
+	init_position(TIME_STEP, my_position[1], my_position[0], my_position[2]); // initialize localization variables
 }
 
 
