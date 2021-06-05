@@ -6,7 +6,7 @@
 - [finished] extend to five robot!
 - [finished] control with odometry information
 - [finished] try to max the speed before the goal while limit the speed when near the goal using `adjust_vel`
-- use relative pose instead of true pose
+- [used but with very bad performance] use relative pose instead of true pose
 /*****************************************************************************/
 
 /**************************************************/
@@ -43,7 +43,7 @@
 #define NB_SENSORS           8
 /* Formation parameters */
 #define FLOCK_SIZE	  5 // Size of formation
-#define EDGE_SIZE	  7 // Size of edges
+#define EDGE_SIZE	  4 // Size of edges
 #define AXLE_LENGTH          0.052     // Distance between wheels of robot
 #define SPEED_UNIT_RADS      0.0628    // Conversion factor between speed unit to radian per second
 #define WHEEL_RADIUS         0.0205    // Wheel radius in meters
@@ -60,10 +60,11 @@
 #define VERBOSE_ACC_MEAN false  // Print accelerometer mean values
 #define VERBOSE_ENC false       // Print encoder values
 #define VERBOSE_GPS false       // Print GPS values
-#define VERBOSE_SPEED true       // Print SPEED values
+#define VERBOSE_SPEED false       // Print SPEED values
 
 #define LEADER_MODE true // use leader mode
-#define ODO_TYPE 1 // 1: ACC-based KF, 2: ENC-based KF, 3: ACC-based position+ENC-based heading
+#define ODO_TYPE 2 // 1: ACC-based KF, 2: ENC-based KF, 3: ACC-based position+ENC-based heading
+#define USE_TRUE true
 
 /**************************************************/
 /* WEBOTS INITIALIZATION */
@@ -80,7 +81,7 @@ WbDeviceTag dev_acc;
 
 // init and goal position
 // from -1.9 -> 2.4 = 4
-float goal_distance[2] = {2, 0.0};
+float goal_distance[2] = {1, -0.0};
 float goal_pos[2];
 // initial position of 5 robots
 float init_x[5] = {-2.9, -2.9, -2.9, -2.9, -2.9};
@@ -91,11 +92,11 @@ int DELTA_T=64;	// [ms] Length of time step
 float err[2];
 float prev_err[2];
 float integrator[2];
-float k_p = 0.08;
-float k_i = 0.1;
+float k_p = 0.5; // 0.1
+float k_i = 0.0; // 0.0
 
 /* TUNING PARAMETERS */
-float THRESHOLD=0.05;	// Convergence threshold
+float THRESHOLD=0.3;	// Convergence threshold
 // int Interconn[16] = {-5,-15,-20,6,4,6,3,5,4,4,6,-18,-15,-5,5,3};
 int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18};
 // weight for generated obstacle speed
@@ -103,9 +104,10 @@ float ob_weight = 3;
 
 // bias vector
 float bias_x[5] = {0, 0, 0, 0, 0};
+// float bias_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
 float bias_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
 
-double weight_coefficient = .5;
+double weight_coefficient = 1;
 
 /**************************************************/
 /* ROBOT VARIABLES INITIALIZATION */
@@ -494,10 +496,10 @@ void initial_pos(){
 		my_position[1] = init_y[robot_id]; // z-position
 		printf("Robot %d pos (%f, %f)\n", robot_id, init_x[robot_id], init_y[robot_id]);
 		printf("Init robot pos (%f, %f)\n", my_position[0], my_position[1]);
-		my_position[2] = 0; // theta
+		my_position[2] = 0; // init theta
 		prev_my_position[0] = init_x[robot_id];
 		prev_my_position[1] = init_y[robot_id];
-		prev_my_position[2] = 0;
+		prev_my_position[2] = 0; // init theta
 		// goal_distance[2] = {GOAL_X, GOAL_Y}; // Error dynamics
 		goal_pos[0] = my_position[0] + goal_distance[0];
 		goal_pos[1] = my_position[1] + goal_distance[1];
@@ -563,10 +565,6 @@ void compute_relative_pos() {
 }
 
 void process_received_ping_messages(void) {
-	global_position[robot_id][0] = my_position[0];
-	global_position[robot_id][1] = my_position[1];
-	printf("(Global) Current robot %d: (%f, %f)\n", robot_id, global_position[robot_id][0], global_position[robot_id][1]);
-
 	const double *message_direction;
 	double message_rssi; // Received Signal Strength indicator
 	double theta;
@@ -578,7 +576,6 @@ void process_received_ping_messages(void) {
 		inbuffer = (char*) wb_receiver_get_data(receiver);
 		if (inbuffer[0] != 'e'){
 			// printf("Robot %d \n",inbuffer[0]- '0');
-
 			int i = inbuffer[0]- '0';
 			sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
 			wb_receiver_next_packet(receiver);
@@ -591,13 +588,33 @@ void process_received_ping_messages(void) {
 		// process relative measurements
 		message_direction = wb_receiver_get_emitter_direction(receiver);
 		message_rssi = wb_receiver_get_signal_strength(receiver);
+
 		double x = message_direction[0];
 		double y = message_direction[2];
 
+		printf("message_direction (%f, %f %f)\n",
+		message_direction[0], message_direction[1], message_direction[2]);
+
+		// limit_rad(my_position[2]);
+		// theta = -atan2(y, x);
+		// theta = theta + my_position[2]; // find the relative theta;
+		// limit_rad(theta);
+		// range = sqrt((1/message_rssi));
+
+		// other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
+
+		// Get position update
+		// prev_relative_pos[other_robot_id][0] = relative_pos[other_robot_id][0];
+		// prev_relative_pos[other_robot_id][1] = relative_pos[other_robot_id][1];
+
+		// //relative_pos[other_robot_id][0] = -range*sin(theta);   // relative y pos
+		// relative_pos[other_robot_id][0] = range*cos(theta);
+		// relative_pos[other_robot_id][1] = -range*sin(theta);  // relative x pos
+
 		limit_rad(my_position[2]);
-		theta = -atan2(y, x);
-		theta = theta + my_position[2]; // find the relative theta;
-		limit_rad(theta);
+		theta = atan2(y, x);
+		theta = M_PI/2.0 - theta + my_position[2] - M_PI/2.0; // find the relative theta;
+		// limit_rad(theta);
 		range = sqrt((1/message_rssi));
 
 		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
@@ -606,20 +623,29 @@ void process_received_ping_messages(void) {
 		prev_relative_pos[other_robot_id][0] = relative_pos[other_robot_id][0];
 		prev_relative_pos[other_robot_id][1] = relative_pos[other_robot_id][1];
 
-		relative_pos[other_robot_id][1] = range*cos(theta);  // relative x pos
-		relative_pos[other_robot_id][0] = -1.0 * range*sin(theta);   // relative y pos
+		relative_pos[other_robot_id][1] = -range*sinf(theta);
+		relative_pos[other_robot_id][0] = range*cosf(theta);  // relative x pos
 
+		relative_pos[other_robot_id][0] *= -1.0;
+		relative_pos[other_robot_id][1] *= -1.0;
+
+		printf("RobotTheta %f\t", theta);
 		global_position[other_robot_id][0] = my_position[0] + relative_pos[other_robot_id][0];
 		global_position[other_robot_id][1] = my_position[1] + relative_pos[other_robot_id][1];
 		// if (VERBOSE){
 		// printf("(relative) Current Robot %s, from robot %d, range %g, direction_x: %g, direction_y: %g, x: %g, y: %g, theta %g, my theta %g\n",
 		// robot_name, other_robot_id, range, x, y, relative_pos[other_robot_id][0], relative_pos[other_robot_id][1], limit_angle(-atan2(y,x)*180.0/M_PI), limit_angle(my_position[2]*180.0/M_PI));
-    		  printf("(Relative) position of robot %d: (%f, %f)\n",
-    		  other_robot_id, relative_pos[other_robot_id][0], relative_pos[other_robot_id][1]);
-                                    printf("(Global) position of current robot %d: (%f, %f)\n", 
-                                    robot_id, global_position[robot_id][0], global_position[robot_id][1]);
-                                    printf("(Global) estimated position of robot %d: (%f, %f)\n",
-    		  other_robot_id, global_position[other_robot_id][0], global_position[other_robot_id][1]);
+    		  // printf("(Relative) position of robot %d: (%f, %f)\n",
+    		  // other_robot_id, relative_pos[other_robot_id][0], relative_pos[other_robot_id][1]);
+                                    // printf("(Global) position of current robot %d: (%f, %f)\n",
+                                    // robot_id, global_position[robot_id][0], global_position[robot_id][1]);
+                                    //printf("(Global) estimated position of robot %d: (%f, %f)\t",
+    		  //other_robot_id, global_position[other_robot_id][0], global_position[other_robot_id][1]);
+                                    //printf("global true position of robot %d: (%f, %f)\n",
+    		  //other_robot_id, true_position[other_robot_id][0], true_position[other_robot_id][1]);
+    		  //printf("L2 error of robot %d: %f\n", other_robot_id,
+    		      //sqrt(pow(global_position[other_robot_id][0]-true_position[other_robot_id][0], 2) + pow(global_position[other_robot_id][1]-true_position[other_robot_id][1], 2)));
+
                                   // }
 
 		// relative_speed[other_robot_id][0] = relative_speed[other_robot_id][0]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][0]-prev_relative_pos[other_robot_id][0]);
@@ -638,28 +664,39 @@ void update_laplacian(void){
 void update_self_motion(int msl, int msr) {
 
 	limit_rad(_odo_enc.heading);
-	// Use KF results
-	if (ODO_TYPE == 1){
-		// use ACC-based KF
+	// use true position
+	if (USE_TRUE){
+	    my_position[0] = true_position[robot_id][0];
+	    my_position[1] = true_position[robot_id][1];
+	    my_position[2] = true_position[robot_id][2] + M_PI/2.0;
+	}
+	else {
+	    // Use KF results
+	    if (ODO_TYPE == 1){
+		// /* use ACC-based KF */
 		my_position[0] = gsl_matrix_get(X_acc,0,0);
 		my_position[1] = -gsl_matrix_get(X_acc,1,0);
 		my_position[2] = limit_rad(_odo_acc.heading);
-	}
-	else if (ODO_TYPE == 2){
-		// use ENC-based KF
+	    }
+	    else if (ODO_TYPE == 2){
+		// /* use ENC-based KF */
 		my_position[0] = gsl_matrix_get(X_enc,0,0);
 		my_position[1] = -gsl_matrix_get(X_enc,1,0);
-		my_position[2] = limit_rad(_odo_enc.heading);
-	}
-	else if (ODO_TYPE == 3){
-		// use ACC-based KF in position and ENC-based in heading
+  		my_position[2] = limit_rad(_odo_enc.heading) + M_PI/2.0;
+	    }
+	    else if (ODO_TYPE == 3){
+		// /*use ACC-based KF in position and ENC-based in heading */
 		my_position[0] = gsl_matrix_get(X_acc,0,0);
 		my_position[1] = -gsl_matrix_get(X_acc,1,0);
 		my_position[2] = limit_rad(_odo_enc.heading);
+	    }
 	}
 
 	printf("ACC estimated X: %.2f, Y: %.2f, Theta: %.2f\n", gsl_matrix_get(X_acc, 0, 0), -gsl_matrix_get(X_acc, 1, 0), limit_rad(_odo_acc.heading));
 	printf("ENC estimated X: %.2f, Y: %.2f, Theta: %.2f\n", gsl_matrix_get(X_enc, 0, 0), -gsl_matrix_get(X_enc, 1, 0), limit_rad(_odo_enc.heading));
+	global_position[robot_id][0] = my_position[0];
+	global_position[robot_id][1] = my_position[1];
+	printf("(Global) Current robot %d: (%f, %f)\n", robot_id, global_position[robot_id][0], global_position[robot_id][1]);
 
 	// new: update errors
 	prev_err[0] = err[0]; prev_err[1] = err[1];
@@ -684,23 +721,31 @@ void compute_wheel_speeds(int *msl, int *msr, gsl_matrix * laplacian){
 		if (j == robot_id) {
 			printf("true_position: (%f, %f)\n", true_position[robot_id][0], true_position[robot_id][1]);
 			// true position
-			speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][0] - bias_x[j]);
-			speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][1] - bias_y[j]);
-                                                   // global position
-                                                   // speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (global_position[j][0] - bias_x[j]);
-			// speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (global_position[j][1] - bias_y[j]);
+			if (USE_TRUE){
+			    speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][0] - bias_x[j]);
+			    speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][1] - bias_y[j]);
+                                                   }
+                                                   else {
+                                                       // global position
+                                                       speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (global_position[j][0] - bias_x[j]);
+			    speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (global_position[j][1] - bias_y[j]);
+			}
 		}
 		else {
 			if (gsl_matrix_get (laplacian, robot_id, j) == 0){
 				continue;
 			}
 			else {// connect with current vertex
-			    // true position
-			    speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][0] - bias_x[j]);
-			    speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][1] - bias_y[j]);
-			    // global position
-			    // speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (global_position[j][0] - bias_x[j]);
-			    // speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (global_position[j][1] - bias_y[j]);
+			    if (USE_TRUE){
+			        // true position
+			        speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][0] - bias_x[j]);
+			        speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (true_position[j][1] - bias_y[j]);
+			    }
+			    else {
+			        // global position
+			        speed[robot_id][0] -= gsl_matrix_get (laplacian, robot_id, j) * (global_position[j][0] - bias_x[j]);
+			        speed[robot_id][1] -= gsl_matrix_get (laplacian, robot_id, j) * (global_position[j][1] - bias_y[j]);
+			    }
 			}
 		}
 	}
@@ -750,10 +795,25 @@ void compute_wheel_speeds(int *msl, int *msr, gsl_matrix * laplacian){
 	// use relative positioning
 	// float x = speed[robot_id][0]*cosf(my_position[2]) + speed[robot_id][1]*sinf(my_position[2]); // x in robot coordinates
 	// float y = -speed[robot_id][0]*sinf(my_position[2]) + speed[robot_id][1]*cosf(my_position[2]); // y in robot coordinates
-	printf("robot %d true heading %f\n", robot_id, true_position[robot_id][2]);
-	float x = final_speed[robot_id][0]*cosf(true_position[robot_id][2] - 1.57) + final_speed[robot_id][1]*sinf(true_position[robot_id][2] - 1.57); // x in robot coordinates
-	float y = -final_speed[robot_id][0]*sinf(true_position[robot_id][2] - 1.57) + final_speed[robot_id][1]*cosf(true_position[robot_id][2] - 1.57); // y in robot coordinates
 
+                 float x, y;
+	if (USE_TRUE){
+		printf("robot %d true heading %f\n", robot_id, true_position[robot_id][2]);
+		x = final_speed[robot_id][0]*cosf(true_position[robot_id][2] - 1.57) + final_speed[robot_id][1]*sinf(true_position[robot_id][2] - 1.57); // x in robot coordinates
+		y = -final_speed[robot_id][0]*sinf(true_position[robot_id][2] - 1.57) + final_speed[robot_id][1]*cosf(true_position[robot_id][2] - 1.57); // y in robot coordinates
+	} else {
+		printf("robot %d true heading %f\n", robot_id, true_position[robot_id][2]);
+		// x = final_speed[robot_id][0]*cosf(global_position[robot_id][2] - 1.57) + final_speed[robot_id][1]*sinf(global_position[robot_id][2] - 1.57); // x in robot coordinates
+		// y = -final_speed[robot_id][0]*sinf(global_position[robot_id][2] - 1.57) + final_speed[robot_id][1]*cosf(global_position[robot_id][2] - 1.57); // y in robot coordinates
+
+		float tmp_x = final_speed[robot_id][0];
+		float tmp_y = final_speed[robot_id][1];
+		final_speed[robot_id][0] = -tmp_y;
+		final_speed[robot_id][1] = tmp_x;
+		x = final_speed[robot_id][0]*cosf(global_position[robot_id][2])  + final_speed[robot_id][1]*sinf(global_position[robot_id][2]); // x in robot coordinates
+		y = -final_speed[robot_id][0]*sinf(global_position[robot_id][2] ) + final_speed[robot_id][1]*cosf(global_position[robot_id][2]); // y in robot coordinates
+
+	}
 
 	float Ku = 0.2;   // Forward control coefficient
 	float Kw = 0.5;  // Rotational control coefficient
@@ -841,7 +901,7 @@ int main(){
 
 	// initialize localization variables
 	// TODO: test!!! y axis!!!
-	printf("Input init_position_kf robot pos (%f, %f)\n", my_position[0], my_position[1]);
+	printf("Input init_position_kf robot pos (%f, %f, %f)\n", my_position[0], my_position[1], my_position[2]);
 	init_position_kf(time_step, my_position[0], -my_position[1], my_position[2]);
 
 	//improves acceleration odometry in the beginning
@@ -907,7 +967,7 @@ int main(){
 		// try to maxmize speed as fast as possible before reaching
 		// limit speed when close to the target!!!
 		float overall_err = sqrt(err[0] * err[0] + err[1] * err[1]);
-		if (overall_err<0.2){
+		if (overall_err<THRESHOLD){
 		    adjust_vel(&msl, &msr, MAX_SPEED*overall_err);
 		} else{
   		    adjust_vel(&msl, &msr, MAX_SPEED);
