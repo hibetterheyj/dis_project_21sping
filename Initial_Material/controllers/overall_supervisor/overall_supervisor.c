@@ -14,7 +14,7 @@
 
 #define is_crossing false       // Change from different scenarios
 
-#define FLOCK_SIZE	5		// Number of robots in flock
+#define FLOCK_SIZE	2		// Number of robots in flock
 #define TIME_STEP	64		// [ms] Length of time step
 
 //Robot speed parameters
