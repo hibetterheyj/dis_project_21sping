@@ -62,7 +62,7 @@
 #define VERBOSE_GPS false       // Print GPS values
 #define VERBOSE_SPEED false       // Print SPEED values
 
-#define LEADER_MODE true // use leader mode
+#define LEADER_MODE false // use leader mode
 #define ODO_TYPE 2 // 1: ACC-based KF, 2: ENC-based KF, 3: ACC-based position+ENC-based heading
 #define USE_TRUE true
 
@@ -104,7 +104,6 @@ float ob_weight = 3;
 
 // bias vector
 float bias_x[5] = {0, 0, 0, 0, 0};
-// float bias_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
 float bias_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
 
 double weight_coefficient = 1;

@@ -180,6 +180,26 @@ void kalman_compute_acc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double a
   
   //memset(&kalman_state, X , sizeof(state_t));
   //printf("kalman function %g\n", gsl_matrix_get(mu_old, 0, 0));
+
+  // free memory
+  gsl_matrix_free(u);
+  gsl_matrix_free(R);
+  gsl_matrix_free(A);
+  gsl_matrix_free(B);
+  gsl_matrix_free(temp1);
+  gsl_matrix_free(temp2);
+  gsl_matrix_free(temp3);
+  gsl_matrix_free(temp4);
+  gsl_matrix_free(temp5);
+  gsl_matrix_free(temp6);
+  gsl_matrix_free(temp7);
+  gsl_matrix_free(mu_new);
+  gsl_matrix_free(lambda_new);
+  gsl_matrix_free(C);
+  gsl_matrix_free(Q);
+  gsl_matrix_free(z);
+  gsl_matrix_free(K);
+
   }
 }
 
@@ -279,6 +299,17 @@ void kalman_compute_enc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double s
   gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, -1.0, K, C, 1.0, temp6);
   gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, temp6, lambda_new, 0.0, temp7);
   gsl_matrix_memcpy(lambda_new,temp7);
+
+  // free memory
+  gsl_matrix_free(temp3);
+  gsl_matrix_free(temp4);
+  gsl_matrix_free(temp5);
+  gsl_matrix_free(temp6);
+  gsl_matrix_free(temp7);
+  gsl_matrix_free(C);
+  gsl_matrix_free(Q);
+  gsl_matrix_free(z);
+  gsl_matrix_free(K);
     }
   // 2 always use gps but error increases between gps updates
   /*
@@ -328,6 +359,16 @@ void kalman_compute_enc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double s
   
   gsl_matrix_memcpy(mu_old, mu_new);
   gsl_matrix_memcpy(lambda_old, lambda_new);
+
+  // free memory
+  gsl_matrix_free(u);
+  gsl_matrix_free(R);
+  gsl_matrix_free(A);
+  gsl_matrix_free(B);
+  gsl_matrix_free(temp1);
+  gsl_matrix_free(temp2);
+  gsl_matrix_free(mu_new);
+  gsl_matrix_free(lambda_new);
 }
 
 /*

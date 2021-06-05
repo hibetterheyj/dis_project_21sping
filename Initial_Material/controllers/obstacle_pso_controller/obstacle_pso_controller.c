@@ -724,11 +724,12 @@ int main(){
 	msl = 0; msr = 0; 
 	max_sens = 0; 
 	counter = 0;
+	double * inbuffer;
 	
 	// Forever
 	for(;;){
         if (wb_receiver_get_queue_length(receiver2) > 0) {
-			double *inbuffer = (double *) wb_receiver_get_data(receiver2);
+			inbuffer = (double *) wb_receiver_get_data(receiver2);
 			// printf("recevied \n");
 			// RULE1_THRESHOLD=inbuffer[0]/3.0;  
 			// RULE1_WEIGHT=inbuffer[1]/3.0;	
