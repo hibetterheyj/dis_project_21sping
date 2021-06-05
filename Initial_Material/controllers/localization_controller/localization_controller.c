@@ -64,7 +64,7 @@ WbDeviceTag dev_left_motor;
 WbDeviceTag dev_right_motor;
 WbDeviceTag emitter;		// Handle for the emitter node
 
-// devices
+// functions declarations
 
 static void init_position(int time_step, double x_init, double z_init, double h_init);
 static void compute_position(int time_step);
@@ -88,19 +88,18 @@ int main()
 {
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
-  init_position(time_step, -2.9, 0, 0);
+  init_position(time_step, -2.9, 0, 0); // positioning initialization
   controller_init_log("logs.csv"); //logs file
   
   while ((wb_robot_step(time_step) != -1)&& wb_robot_get_time()<130)  {
-    compute_position(time_step);
-
-    // send measurements to supervisor
-    send_mea();
-
+    compute_position(time_step); //positioning computation
+    send_mea();// send measurements to supervisor
+    
     // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor);
-    //trajectory_2(dev_left_motor, dev_right_motor);      
-    controller_print_log(wb_robot_get_time());
+    //trajectory_2(dev_left_motor, dev_right_motor); 
+         
+    controller_print_log(wb_robot_get_time()); // logs printing
   }
   if(fp != NULL)
     fclose(fp);
@@ -123,7 +122,7 @@ void init_position(int time_step, double x_init, double z_init, double h_init)
   _odo_acc.heading= _pose.heading;
   _odo_enc.x= _pose.x;
   _odo_enc.y= _pose.y;
-  _odo_enc.heading= _pose.heading;
+  _odo_enc.heading= _pose.heading; // setting initial position
   
   odo_reset(time_step,&_pose_origin);
   kalman_reset(time_step);
@@ -131,29 +130,27 @@ void init_position(int time_step, double x_init, double z_init, double h_init)
   //initial mean acceleration (as calibration takes place when the robot moves at cst speed)
   //improves acceleration odometry in the beginning
   controller_compute_initial_mean_acc();
-  controller_init_log("logs.csv"); //logs file
 }
 
 void compute_position(int time_step)
 {
-   controller_get_pose();
-   controller_get_acc();
-   controller_get_encoder();
+   controller_get_pose(); // get gps localization
+   controller_get_acc(); // get accelerometer data
+   controller_get_encoder(); // get encoder data
    //get mean values when the robot moves at cst speed
-   if((wb_robot_get_time()<TIME_INIT_ACC)&&(wb_robot_get_time()>1))
+   if((wb_robot_get_time()<TIME_INIT_ACC)&&(wb_robot_get_time()>1)) //during the first second
    {
-     controller_compute_mean_acc(time_step);
+     controller_compute_mean_acc(time_step); // compute the accelerometer bias
    }
    //compute odometries and kalman filter based localization
-   odo_compute_acc(&_odo_acc, _meas.acc, _meas.acc_mean);
-   odo_compute_encoders(&_odo_enc, &_speed_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc);
+   odo_compute_acc(&_odo_acc, _meas.acc, _meas.acc_mean); // compute acceleration odometry
+   odo_compute_encoders(&_odo_enc, &_speed_enc, _meas.left_enc - _meas.prev_left_enc, _meas.right_enc - _meas.prev_right_enc); // compute encoders odometry
 
    kalman_compute_acc(X_acc,Cov_acc,(_meas.acc[1]-_meas.acc_mean[1])*cos(_odo_enc.heading),
-     (_meas.acc[1]-_meas.acc_mean[1])*sin(_odo_enc.heading),_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
+     (_meas.acc[1]-_meas.acc_mean[1])*sin(_odo_enc.heading),_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s); // compute accelerometer based kalman filtering
       
    kalman_compute_enc(X_enc,Cov_enc,_speed_enc.x,
-     _speed_enc.y,_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s);
-     controller_print_log(wb_robot_get_time());
+     _speed_enc.y,_pose.x,_pose.y,wb_robot_get_time()-last_gps_time_s); // compute encoder based kalman filtering
 }
 void init_state() //declaration of kalman filter input and output variables
 {
@@ -176,7 +173,8 @@ void init_state() //declaration of kalman filter input and output variables
   gsl_matrix_set(X_enc,1,0,_pose.y);
 }
 
-void init_devices(int ts) {
+void init_devices(int ts) // initialization of used devices
+{
   dev_gps = wb_robot_get_device("gps");
   wb_gps_enable(dev_gps, 1000);
   
@@ -210,7 +208,7 @@ void controller_get_pose()
     last_gps_time_s = time_now_s;
     controller_get_gps();
 
-    // To Do : Fill the structure pose_t {x, y, heading}. Use the _pose_origin.
+    // Fill the structure pose_t {x, y, heading}
     _pose.x = _meas.gps[0] - _pose_origin.x;
     _pose.y = -(_meas.gps[2] - _pose_origin.y);
     _pose.heading = controller_get_heading() + _pose_origin.heading;
@@ -226,11 +224,11 @@ void controller_get_pose()
 
 void controller_get_gps()
 {
-  // To Do : store the previous measurements of the gps (use memcpy)
+  // store the previous measurements of the gps
   memcpy(_meas.prev_gps, _meas.gps, sizeof(_meas.gps));
-  // To Do : get the positions from webots for the gps. Uncomment and complete the following line Note : Use dev_gps
+  // get the positions from webots for the gps
   const double * gps_position = wb_gps_get_values(dev_gps);
-  // To Do : Copy the gps_position into the measurment structure (use memcpy)
+  // Copy the gps_position into the measurment structure
   memcpy(_meas.gps, gps_position, sizeof(_meas.gps));
 
   if(VERBOSE_GPS)
@@ -239,12 +237,11 @@ void controller_get_gps()
 
 double controller_get_heading()
 {
-  // To Do : implement your function for the orientation of the robot. Be carefull with the sign of axis y !
   double delta_x = _meas.gps[0] - _meas.prev_gps[0];
 
   double delta_y = -(_meas.gps[2] - _meas.prev_gps[2]);
 
-  // To Do : compute the heading of the robot ( use atan2 )
+  // compute the heading of the robot
   
   double heading = atan2(delta_y, delta_x);
   
@@ -253,10 +250,10 @@ double controller_get_heading()
 
 void controller_get_acc()
 {
-  // To Do : Call the function to get the accelerometer measurements. Uncomment and complete the following line. Note : Use dev_acc
+  // Call the function to get the accelerometer measurements.
   const double * acc_values = wb_accelerometer_get_values(dev_acc);
 
-  // To Do : Copy the acc_values into the measurment structure (use memcpy)
+  // Copy the acc_values into the measurment structure
   memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
 
   if(VERBOSE_ACC)
@@ -302,17 +299,15 @@ void controller_compute_mean_acc(int ts)
         printf("ROBOT acc mean : %g %g %g\n", _meas.acc_mean[0], _meas.acc_mean[1] , _meas.acc_mean[2]);
 }
 
-void controller_compute_initial_mean_acc()
+void controller_compute_initial_mean_acc() // initial accelerometer bias (hardcoded)
 {
   _meas.acc_mean[0] = 6.56983e-05;
   _meas.acc_mean[1] = 0.00781197;
   _meas.acc_mean[2] = 9.81;
-  //printf("bias set \n");
 }
 
-void controller_print_log(double time)
+void controller_print_log(double time) // logs printing
 {
-
   if( fp != NULL)
   {
     fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
@@ -325,14 +320,15 @@ void controller_print_log(double time)
 }
 
 
-void controller_init_log(const char* filename)
+void controller_init_log(const char* filename) // logs initialisation
 {
   fp = fopen(filename,"w");
 
   fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; gps_z; acc_0; acc_1; acc_2; right_enc; left_enc; odo_acc_x; odo_acc_y; odo_acc_heading; odo_enc_x; odo_enc_y; odo_enc_heading; acc_kal_x; acc_kal_y; enc_kal_vx; enc_kal_vy\n");
 }
 
-void send_mea() {
+void send_mea() // message sending for the supervisor
+{
   double time_now_s = wb_robot_get_time();
   if (time_now_s - last_gps_send_time_s > 1.0f) {
     last_gps_send_time_s = time_now_s;
@@ -349,12 +345,5 @@ void send_mea() {
   message[8] = gsl_matrix_get(X_enc,0,0);
   message[9] = gsl_matrix_get(X_enc,1,0);
   
-   // printf("\n sent \n");
-    // printf("recevier time: %g \n",time_now_s);
-    // printf("est: %g %g \n",message[0],message[1]);
-    // printf("est: %g %g \n",message[2],message[3]);
-    // printf("est: %g %g \n",message[4],message[5]);
-    // printf("est: %g %g \n",message[6],message[7]);
-    // printf("est: %g %g \n",message[8],message[9]);
   wb_emitter_send(emitter,message,10*sizeof(float)); 
 }

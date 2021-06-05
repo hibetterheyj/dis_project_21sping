@@ -9,7 +9,7 @@
 #include <webots/supervisor.h>
 
 #define VERBOSE_err false       // Print accumulated error(required metric)
-#define VERBOSE_avg_err true       // Print average error
+#define VERBOSE_avg_err false       // Print average error
 
 WbNodeRef rob_node; // Robot nodes	
 WbFieldRef rob_trans; // Robots translation fields

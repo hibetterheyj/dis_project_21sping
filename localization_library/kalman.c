@@ -18,8 +18,20 @@
 #define VERBOSE_ODO_ENC false     			// Print position values computed with kalman filter
 //-----------------------------------------------------------------------------------//
 /*GLOBAL*/
-static double _T;
+static double _T; // for time step
 
+/*
+ * @brief      kalman filtering using gps and accelerometer data
+ *
+ * @param      mu_old     The old state matrix
+ * @param      lambda_old The old covariance matrix
+
+ * @param[in]  acc_x      The acceleration in the x direction
+ * @param[in]  acc_y      The acceleration in the y direction
+ * @param[in]  gps_x      The gps position on x axis
+ * @param[in]  gps_y      The gps position on y axis
+ * @param[in]  delay      The time elapsed since last gps update
+ */
 void kalman_compute_acc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double acc_x, const double acc_y, const double gps_x, const double gps_y, const double delay)
 {
   if(!isnan(acc_x) && !isnan(acc_y))
@@ -171,6 +183,19 @@ void kalman_compute_acc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double a
   }
 }
 
+
+/*
+ * @brief      kalman filtering using gps and encoder data
+ *
+ * @param      mu_old     The old state matrix
+ * @param      lambda_old The old covariance matrix
+
+ * @param[in]  speed_x    The speed based on encoders in the x direction
+ * @param[in]  speed_y    The speed based on encoders in the y direction
+ * @param[in]  gps_x      The gps position on x axis
+ * @param[in]  gps_y      The gps position on x axis
+ * @param[in]  delay      The time elapsed since last gps update
+ */
 void kalman_compute_enc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double speed_x,const double speed_y, const double gps_x, const double gps_y,const double delay)
 {
   //speed values in world frame
@@ -305,7 +330,11 @@ void kalman_compute_enc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double s
   gsl_matrix_memcpy(lambda_old, lambda_new);
 }
 
-
+/*
+ * @brief      Reset the kalman to zeros
+ *
+ * @param[in]  time_step  The time step used in the simulation in miliseconds
+ */
 void kalman_reset(int time_step)
 {
 	_T = time_step / 1000.0;

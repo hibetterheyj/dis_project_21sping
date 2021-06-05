@@ -1,9 +1,9 @@
 clear all
 close all
 clc
-%set(groot,'DefaultAxesFontSize', 14)
+%% results plotting
 set(groot,'DefaultLineLineWidth', 1.5)
-
+%opening and loading logs file
 fid= fopen('../Initial_Material/controllers/localization_supervisor/errors.csv');
 data= textscan(fid,"%f %f %f %f %f %f %f %f %f %f %f","Delimiter",";","headerlines",1);
 
@@ -19,14 +19,10 @@ enc_mean= data{:,9};
 kal1_mean= data{:,10};
 kal2_mean= data{:,11};
 
+%plotting metrics
 figure("name","ERRORS")
 title("Localization Error");
 hold on
-% plot(time,gps_error,"displayname","gps error");
-% plot(time,acc_error,"displayname","acc error");
-% plot(time,enc_error,"displayname","enc error");
-% plot(time,kal_error,"displayname","kal error");
-
 plot(time,gps_error,"displayname","gps error");
 plot(time,acc_error,"displayname","acc error");
 plot(time,enc_error,"displayname","enc error");
