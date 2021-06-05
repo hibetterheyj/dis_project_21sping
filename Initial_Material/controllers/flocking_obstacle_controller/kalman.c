@@ -208,6 +208,55 @@ void kalman_compute_enc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double s
   gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, A, temp2, 0.0, lambda_new); 
   gsl_matrix_add(lambda_new,R);
   
+  // 1 use gps once per second only
+  if (delay == 0.0f) 
+  {
+  
+   //C matrix
+  gsl_matrix*C= gsl_matrix_calloc(2,2);
+  gsl_matrix_set(C,0,0,1);
+  gsl_matrix_set(C,1,1,1);
+
+  //Q matrix
+  gsl_matrix*Q= gsl_matrix_calloc(2,2);
+  gsl_matrix_set(Q,0,0,0.05);
+  gsl_matrix_set(Q,1,1,0.05);
+
+  //gps observations (initial position deduced)
+  gsl_matrix*z= gsl_matrix_alloc(2,1);
+  gsl_matrix_set(z,0,0,gps_x);
+  gsl_matrix_set(z,1,0,gps_y);
+
+  gsl_matrix*temp3= gsl_matrix_alloc(2,2);
+  gsl_matrix*temp4= gsl_matrix_alloc(2,2);
+
+    
+  gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1.0, lambda_new, C, 0.0, temp3);
+  gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, C, temp3, 0.0, temp4);
+  gsl_matrix_add(temp4,Q);
+  gsl_blas_dtrsm(CblasRight, CblasUpper, CblasNoTrans, CblasNonUnit, 1, temp4, temp3);
+
+  //K matrix
+  gsl_matrix*K= gsl_matrix_alloc(2,2);
+  gsl_matrix_memcpy(K,temp3);
+
+  gsl_matrix*temp5= gsl_matrix_alloc(2,1);
+  gsl_matrix_memcpy(temp5,z);
+  gsl_matrix*temp6= gsl_matrix_alloc(2,2);
+  gsl_matrix_set_identity(temp6);
+  gsl_matrix*temp7= gsl_matrix_alloc(2,2);
+
+  //mu_new
+  gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, -1.0, C, mu_new, 1.0, temp5);
+  gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, K, temp5, 1.0, mu_new);
+    
+  //lambda_new
+  gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, -1.0, K, C, 1.0, temp6);
+  gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, temp6, lambda_new, 0.0, temp7);
+  gsl_matrix_memcpy(lambda_new,temp7);
+    }
+  // 2 always use gps but error increases between gps updates
+  /*
    //C matrix
   gsl_matrix*C= gsl_matrix_calloc(2,2);
   gsl_matrix_set(C,0,0,1);
@@ -250,6 +299,7 @@ void kalman_compute_enc(gsl_matrix*mu_old, gsl_matrix*lambda_old, const double s
   gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, -1.0, K, C, 1.0, temp6);
   gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, temp6, lambda_new, 0.0, temp7);
   gsl_matrix_memcpy(lambda_new,temp7);
+  */
   
   gsl_matrix_memcpy(mu_old, mu_new);
   gsl_matrix_memcpy(lambda_old, lambda_new);
