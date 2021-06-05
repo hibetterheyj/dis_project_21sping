@@ -1874,7 +1874,7 @@ DEF epuck0 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck0(1)"
+  name "epuck0"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -3258,7 +3258,7 @@ DEF epuck1 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck1(1)"
+  name "epuck1"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -4642,7 +4642,7 @@ DEF epuck2 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck2(1)"
+  name "epuck2"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -6026,7 +6026,7 @@ DEF epuck3 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck3(1)"
+  name "epuck3"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -7410,7 +7410,7 @@ DEF epuck4 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck4(1)"
+  name "epuck4"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
