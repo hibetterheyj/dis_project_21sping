@@ -310,6 +310,7 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
   int step = 0;
   bool run = true;
   double buffer[255];
+  char *inbuffer;
   // sprintf(buffer,"%1s","p");
   for (int iter=0;iter<2;iter++) {
     run = true;
@@ -336,7 +337,7 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
       overall_metric += metric;
       while (wb_receiver_get_queue_length(receiver) > 0) {
         // printf("receive inf\n");
-        char *inbuffer = (char*) wb_receiver_get_data(receiver);
+        inbuffer = (char*) wb_receiver_get_data(receiver);
         if (inbuffer[0] == 'p'){
           run = false;
           // printf("receive finish\n");
