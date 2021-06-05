@@ -44,7 +44,7 @@
 ###
 ###-----------------------------------------------------------------------------
 
-C_SOURCES = flocking_obstacle_controller.c odometry.c kalman.c
+C_SOURCES = flocking_obstacle_controller.c
 
 # yujie
 # https://stackoverflow.com/questions/714100/os-detecting-makefile

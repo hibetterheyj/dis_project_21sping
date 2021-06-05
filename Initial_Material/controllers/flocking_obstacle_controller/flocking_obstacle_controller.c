@@ -48,7 +48,7 @@ float init_z[FLOCK_SIZE] = {-2.9, -2.9, -2.9, -2.9, -2.9};
 #define POS_ACC_KF		1
 #define POS_DUMMY_ODO	2
 #define POS_GT			3
-#define POSITIONING_MODE POS_GT
+#define POSITIONING_MODE POS_ENC_KF
 
 /********** Fixed parameters *********/
 
@@ -89,6 +89,7 @@ WbDeviceTag receiver;		// Handle for the receiver node
 WbDeviceTag emitter;		// Handle for the emitter node
 // int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
 float e_puck_matrix[16] = {42.218327,59.493205,41.934509,49.085423,23.414172,57.789951,20.330942,42.331566,-19.902089,23.479039,39.421804,56.295590,39.940728,41.974669,20.274993,2.085171};
+// float e_puck_matrix[16] = {56,41,72,37,58,-56,-8,-56,-65,-28,-32,22,54,7,23,46};
 int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1) robot ID
 float relative_pos[FLOCK_SIZE][3];	// relative X, Z, Theta of all robots
 float prev_relative_pos[FLOCK_SIZE][3];	// Previous relative  X, Z, Theta values
@@ -96,7 +97,6 @@ float my_position[3];     		// X, Z, Theta of the current robot
 float prev_my_position[3];  		// X, Z, Theta of the current robot in the previous time step
 float speed[FLOCK_SIZE][2];		// Speeds calculated with Reynold's rules
 float relative_speed[FLOCK_SIZE][2];	// Speeds calculated with Reynold's rules
-int initialized[FLOCK_SIZE];		// != 0 if initial positions have been received
 float migr[2] = {MIGRATORY_DEST_X, MIGRATORY_DEST_Z};	        // Migration vector
 char* robot_name;
 float theta_robots[FLOCK_SIZE];
@@ -159,11 +159,11 @@ static void controller_compute_initial_mean_acc();
  * Reset the robot's devices and get its ID
  */
 static void reset() {
+	// Webots initialization
 	wb_robot_init();
+
 	receiver = wb_robot_get_device("receiver");
 	emitter = wb_robot_get_device("emitter");
-	
-	//get motors
 	left_motor = wb_robot_get_device("left wheel motor");
 	right_motor = wb_robot_get_device("right wheel motor");
 	wb_motor_set_position(left_motor, INFINITY);
@@ -179,23 +179,22 @@ static void reset() {
 
 	for(i=0;i<NB_SENSORS;i++)
 		wb_distance_sensor_enable(ds[i],64);
-
 	wb_receiver_enable(receiver,64);
 
-	//Reading the robot's name. Pay attention to name specification when adding robots to the simulation!
+	// Reading the robot's name. Pay attention to name specification when adding robots to the simulation!
 	sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
 	robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
-  
-	for(i=0; i<FLOCK_SIZE; i++) {
-		initialized[i] = 0;		  // Set initialization to 0 (= not yet initialized)
-	}
-  
 	my_position[0] = init_x[robot_id];
 	my_position[1] = init_z[robot_id];
-  	printf("Reset: robot %d\n",robot_id_u);
-        
 	migr[0] = my_position[0] + MIGRATORY_DEST_X;
 	migr[1] = my_position[1] + MIGRATORY_DEST_Z;
+	printf("Reset: robot %d\n",robot_id_u);
+
+	// Positioning mode sanity check
+	if (POSITIONING_MODE < POS_ENC_KF || POSITIONING_MODE > POS_GT){
+		printf("The input POSITIONING_MODE %d is wrong! Reset to encoder+KF positioning!\n", POSITIONING_MODE);
+	}
+	init_position(TIME_STEP, my_position[1], -my_position[0], my_position[2]); // initialize localization variables
 }
 
 
@@ -207,6 +206,33 @@ void limit(int *number, int limit) {
 		*number = limit;
 	if (*number < -limit)
 		*number = -limit;
+}
+
+/* 
+ * Limit the speed proportionally.
+*/
+void limit_vel(int* v1, int* v2, int limit) {
+    float limit_f = (float) limit;
+    float limit_v1 = (float) *v1;
+    float limit_v2 = (float) *v2;
+    float max_vel, ratio;
+    if (abs(limit_v1) >= abs(limit_v2)){
+        if (abs(limit_v1) > limit_f){
+           max_vel = abs(limit_v1);
+           ratio = max_vel / limit_f;
+           limit_v1 = limit_v1 / ratio;
+           limit_v2 = limit_v2 / ratio;
+        }
+    }
+    else {// abs(v1) < abs(v2)
+        if (abs(limit_v2) > limit_f){
+           max_vel = abs(limit_v2);
+           ratio = max_vel / limit_f;
+           limit_v1 = limit_v1 / ratio;
+           limit_v2 = limit_v2 / ratio;
+        }
+    }
+    *v1 = (int)limit_v1; *v2 = (int)limit_v2;
 }
 
 
@@ -249,6 +275,9 @@ void update_self_motion(int msl, int msr) {
 		my_position[1] = true_position[robot_id][0];
 		my_position[2] = true_position[robot_id][2];
 	}
+	else{
+		printf("Not implemented positioning mode!\n");
+	}
   
 	// Keep orientation within 0, 2pi
 	if (VERBOSE){
@@ -281,8 +310,6 @@ void compute_wheel_speeds(int *msl, int *msr) {
 	// Convert to wheel speeds!
 	*msl = (u - AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u + AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
-	// limit(msl,MAX_SPEED);
-	// limit(msr,MAX_SPEED);
 }
 
 
@@ -312,9 +339,6 @@ void reynolds_rules() {
 	}
         
   /* Rule 1 - Aggregation/Cohesion: move towards the center of mass */
-  // for (j=0;j<2;j++)
-  // 	cohesion[j] = rel_avg_loc[j];
-
   if (sqrt(pow(rel_avg_loc[0],2)+pow(rel_avg_loc[1],2)) > RULE1_THRESHOLD) {
   	for (j=0;j<2;j++)
   		cohesion[j] = rel_avg_loc[j];
@@ -372,16 +396,9 @@ void reynolds_rules() {
 			migr_x = -(migr[0]-my_position[0]) * MIGRATION_WEIGHT;
 			migr_y = (migr[1]-my_position[1]) * MIGRATION_WEIGHT;
 
-			// float theta_migr = atan2(migr[0]-my_position[0], migr[1]-my_position[1]);
-			// float theta_dist = my_position[2] - theta_migr;
-			// migr_x = -dist_to_migration * sinf(theta_dist) * MIGRATION_WEIGHT;
-			// migr_y = dist_to_migration * cosf(theta_dist) * MIGRATION_WEIGHT;
-
 			printf("migr[0]: %g, my_position[0]: %g      ", migr[0], my_position[0]);
 			printf("migr[1]: %g, my_position[1]: %g      ", migr[1], my_position[1]);
 			printf("migr_x: %g, migr_y: %g \n", migr_x, migr_y);
-			// speed[robot_id][0] += (migr[0]-my_position[0]) * MIGRATION_WEIGHT;
-			// speed[robot_id][1] += (migr[1]-my_position[1]) * MIGRATION_WEIGHT;
 			speed[robot_id][0] += migr_x;
 			speed[robot_id][1] += migr_y;
 
@@ -425,14 +442,13 @@ void process_received_ping_messages(void) {
 		inbuffer = (char*) wb_receiver_get_data(receiver);
     if (inbuffer[0] != 'e'){
       // printf("Robot %d \n",inbuffer[0]- '0');
-     
       int i = inbuffer[0]- '0';
       sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
       wb_receiver_next_packet(receiver);
       true_position[i][2] += M_PI/2;
       if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
       if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
-      printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
+    //   printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
       continue;
     }
 
@@ -480,22 +496,18 @@ int main(){
 
  	reset();						// Resetting the robot
 
-	
-  	init_position(TIME_STEP, my_position[1], -my_position[0], my_position[2]); // initialize localization variables
-
 	msl = 0; msr = 0; 
 	max_sens = 0; 
 	counter = 0;
 	
 	// Forever
 	for(;;){
-
+		// Initialization
 		bmsl = 0; bmsr = 0;
 		sum_sensors = 0;
 		max_sens = 0;
                 
-		/* Braitenberg */
-		// indispensible for flocking!
+		// Braitenberg obstacle avoidance
 		for(i=0;i<NB_SENSORS;i++) {
 			distances[i] = wb_distance_sensor_get_value(ds[i]); // Read sensor values
 			sum_sensors += distances[i]; // Add up sensor values
@@ -505,26 +517,24 @@ int main(){
 			bmsr += (int) e_puck_matrix[i] * distances[i];
 			bmsl += (int) e_puck_matrix[i+NB_SENSORS] * distances[i];
 		}
-
 		// Adapt Braitenberg values (empirical tests)
 		bmsl/=MIN_SENS; bmsr/=MIN_SENS;
 		bmsl+=66; bmsr+=72;
-              
-		/* Send and get information */
+
+		// Localization
 		send_ping();  // sending a ping to other robot, so they can measure their distance to this robot
 
-		/// Compute self position
 		prev_my_position[0] = my_position[0];
 		prev_my_position[1] = my_position[1];
-		
+		// compute_position(TIME_STEP);
 		update_self_motion(msl,msr);
-
-		compute_position(TIME_STEP); // compute localization
 		
 		process_received_ping_messages();
                       
 		speed[robot_id][0] = (1/DELTA_T)*(my_position[0]-prev_my_position[0]);
 		speed[robot_id][1] = (1/DELTA_T)*(my_position[1]-prev_my_position[1]);
+
+		compute_position(TIME_STEP);
     
 		// Reynold's rules with all previous info (updates the speed[][] table)
 		reynolds_rules();
