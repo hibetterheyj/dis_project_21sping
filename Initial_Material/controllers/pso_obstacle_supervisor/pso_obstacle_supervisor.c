@@ -35,9 +35,9 @@
 #define NB 2                            // Number of neighbors on each side
 #define LWEIGHT 2.0                     // Weight of attraction to personal best
 #define NBWEIGHT 2.0                    // Weight of attraction to neighborhood best
-#define VMAX 0.5                       // Maximum velocity particle can attain
+#define VMAX 40                       // Maximum velocity particle can attain
 #define MININIT 0.0                   // Lower bound on initialization value
-#define MAXINIT 1.0                    // Upper bound on initialization value
+#define MAXINIT 80.0                    // Upper bound on initialization value
 #define ITS 10                          // Number of iterations to run
 // #define DATASIZE 6      // Number of elements in particle
 
@@ -98,7 +98,7 @@ void supervisor_init() {
   
   super_name=(char*) wb_robot_get_name(); 
   printf("my name is %s \n",super_name);
-  if (super_name[0] == 'r'){
+  if (true){
     printf("obstacle scenario \n");
     super_id = 0;
   }
@@ -372,12 +372,14 @@ int main(int argc, char *args[]) {
     weights = pso(SWARMSIZE,NB,LWEIGHT,NBWEIGHT,VMAX,MININIT,MAXINIT,ITS,DATASIZE,ROBOTS);
     
     // Set robot weights to optimization results
+    printf("best para:");
     fit = 0.0;
     for (i=0;i<MAX_ROB;i++) {
-      for (k=0;k<DATASIZE;k++)
+      for (k=0;k<DATASIZE;k++){
 	       w[i][k] = weights[k];
+	       printf("%f,",weights[k]);}
     }
-    
+    printf("\n");
     // Run FINALRUN tests and calculate average
     for (i=0;i<FINALRUNS;i+=MAX_ROB) {
       int nh[SWARMSIZE][SWARMSIZE];
@@ -387,6 +389,15 @@ int main(int argc, char *args[]) {
       }
     }
     fit /= FINALRUNS;
+    
+    // Check for new best fitness
+    if (fit > bestfit) {
+      bestfit = fit;
+      for (i = 0; i < DATASIZE; i++){
+	       bestw[i] = weights[i];
+      }
+    }
+    printf("Performance of the best solution: %.3f\n",fit);
     
     wb_robot_step(TIME_STEP*2);
   }

@@ -1,4 +1,4 @@
-#VRML_SIM R2021a utf8
+#VRML_SIM R2020b utf8
 WorldInfo {
   info [
     "Description"
@@ -10,7 +10,7 @@ WorldInfo {
 }
 Viewpoint {
   orientation -0.9997888389386316 -0.018522133753172097 0.008899892975331888 1.265916143384099
-  position -0.9890679465087983 5.625875843127834 1.8453187249932697
+  position -0.6271774279398018 9.364170937800239 3.0102760041350347
 }
 PointLight {
   intensity 0.5
@@ -76,6 +76,56 @@ DEF ground Solid {
     }
   ]
   boundingObject USE ground_geo
+}
+DEF rock Solid {
+  translation -0.01537 0 -2.11912
+  rotation 0 1 0 1.5708
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry Box {
+        size 0.15 0.2 0.37
+      }
+    }
+  ]
+  name "short brick(1)"
+  boundingObject DEF U_END_BOX Box {
+    size 0.15 0.2 6
+  }
+}
+DEF rock Solid {
+  translation -0.0153558 0 2.05088
+  rotation 0 1 0 1.5708
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry Box {
+        size 0.15 0.2 0.37
+      }
+    }
+  ]
+  name "short brick(2)"
+  boundingObject DEF U_END_BOX Box {
+    size 0.15 0.2 6
+  }
 }
 DEF long_rock_3 Solid {
   translation -3 0 0
@@ -521,18 +571,29 @@ DEF rock Solid {
 }
 DEF SUPERVISOR Robot {
   children [
+    Receiver {
+      channel 1
+    }
+    Emitter {
+      name "emitter2"
+      channel 2
+    }
     DEF emitter Emitter {
       channel 1
     }
   ]
   name "super1"
-  controller "overall_supervisor"
+  controller "pso_obstacle_supervisor"
   supervisor TRUE
 }
 DEF epuck0 Robot {
   translation -2.9 0 -1.11298e-11
   rotation 0 1 0 -1.5708
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -1910,13 +1971,17 @@ DEF epuck0 Robot {
       0 0 0
     ]
   }
-  controller "flocking_obstacle_controller"
+  controller "obstacle_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck1 Robot {
   translation -2.8999999999999835 -3.198720128164481e-05 0.09999999998887045
   rotation 0 1 0 -1.5708
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -3294,13 +3359,17 @@ DEF epuck1 Robot {
       0 0 0
     ]
   }
-  controller "flocking_obstacle_controller"
+  controller "obstacle_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
   translation -2.9 0 -0.1
   rotation 0 1 0 -1.5708
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -4678,13 +4747,17 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "flocking_obstacle_controller"
+  controller "obstacle_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck3 Robot {
   translation -2.9 0 0.213892
   rotation 0 1 0 -1.5708
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -6062,13 +6135,17 @@ DEF epuck3 Robot {
       0 0 0
     ]
   }
-  controller "flocking_obstacle_controller"
+  controller "obstacle_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
   translation -2.9 0 -0.2
   rotation 0 1 0 -1.5708
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -7446,6 +7523,6 @@ DEF epuck4 Robot {
       0 0 0
     ]
   }
-  controller "flocking_obstacle_controller"
+  controller "obstacle_pso_controller"
   cpuConsumption 1.11
 }

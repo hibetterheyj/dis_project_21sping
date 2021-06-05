@@ -35,25 +35,24 @@
 // ********** Tunable parameters **********
 #define VERBOSE false // Print diagnosis information
 
-// #define RULE1_THRESHOLD     0.2   // Threshold to activate aggregation rule. default 0.20
-// #define RULE1_WEIGHT        (1.5/10)	   // Weight of aggregation rule. default 0.6/10
+// #define RULE1_THRESHOLD     0.262817   // Threshold to activate aggregation rule. default 0.20
+// #define RULE1_WEIGHT        (0.160796)	   // Weight of aggregation rule. default 0.6/10
 
-// #define RULE2_THRESHOLD     0.15   // Threshold to activate dispersion rule. default 0.15
-// #define RULE2_WEIGHT        (0.02/10)	   // Weight of dispersion rule. default 0.02/10
+// #define RULE2_THRESHOLD     0.086089   // Threshold to activate dispersion rule. default 0.15
+// #define RULE2_WEIGHT        (0.000928)	   // Weight of dispersion rule. default 0.02/10
 
-// #define RULE3_WEIGHT        (1.0/10)   // Weight of consistency rule. default 1.0/10
+// #define RULE3_WEIGHT        (0.002298)   // Weight of consistency rule. default 1.0/10
 
-#define MIGRATION_WEAKEN_THRESHOLD     0.8   // Min. distance w/o migration weakening penalty
+#define MIGRATION_WEAKEN_THRESHOLD     1.0   // Min. distance w/o migration weakening penalty
 #define MIGRATION_FREEZE_THRESHOLD     0.2   // Slow down the robot if it's within this distance to migration destination
-// #define MIGRATION_WEIGHT    (0.8/10)   // Weight of attraction towards the common goal. default 0.01/10
+// #define MIGRATION_WEIGHT    (0.019997)   // Weight of attraction towards the common goal. default 0.01/10
 
 #define MIGRATORY_URGE 1 // Tells the robots if they should just go forward or move towards a specific migratory direction
 
 // Please note that X & Z axes are aligned with the robots' longitudinal and lateral motion directions at initial position respectively.
 #define MIGRATORY_DEST_X  0.0  // X-coordinate of migration destination
-#define MIGRATORY_DEST_Z 6.0  // Z-coordinate of migration destination 
+#define MIGRATORY_DEST_Z  6.0  // Z-coordinate of migration destination 
 // ********** Tunable parameters **********
-
 double RULE1_THRESHOLD=0.2 ;  // Threshold to activate aggregation rule. default 0.20
 double RULE1_WEIGHT=(1.5/10);	   // Weight of aggregation rule. default 0.6/10
 
@@ -71,7 +70,9 @@ WbDeviceTag left_motor; //handler for left wheel of the robot
 WbDeviceTag right_motor; //handler for the right wheel of the robot
 /*Webots 2018b*/
 
-int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
+// int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
+
+int e_puck_matrix[16] = {42.218327,59.493205,41.934509,49.085423,23.414172,57.789951,20.330942,42.331566,-19.902089,23.479039,39.421804,56.295590,39.940728,41.974669,20.274993,2.085171}; // for obstacle avoidance
 
 
 WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
@@ -377,7 +378,7 @@ void controller_compute_initial_mean_acc()
 static void reset() {
 	wb_robot_init();
 	receiver = wb_robot_get_device("receiver");
-	receiver2 = wb_robot_get_device("receiver2");
+    receiver2 = wb_robot_get_device("receiver2");
 	emitter = wb_robot_get_device("emitter");
 	
 	//get motors
@@ -399,7 +400,7 @@ static void reset() {
 		wb_distance_sensor_enable(ds[i],64);
 
 	wb_receiver_enable(receiver,64);
-	wb_receiver_enable(receiver2,64);
+    wb_receiver_enable(receiver2,64);
 
 	//Reading the robot's name. Pay attention to name specification when adding robots to the simulation!
 	sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
@@ -410,32 +411,28 @@ static void reset() {
 	}
   
 	my_position[1] = -2.9;
-	int_position[1] = -2.9;
+    int_position[1] = -2.9;
 	switch(robot_id){
 		case 0:
 			my_position[0] = 0.0;
-			int_position[0] = 0.0;
 			break;
 		case 1:
 			my_position[0] = 0.1;
-			int_position[0] = 0.1;
 			break;
 		case 2:
 			my_position[0] = -0.1;
-			int_position[0] = -0.1;
 			break;
 		case 3:
 			my_position[0] = 0.2;
-			int_position[0] = 0.2;
 			break;
 		case 4:
 			my_position[0] = -0.2;
-			int_position[0] = -0.2;
 			break;
 	}
+    int_position[0] = my_position[0];
   printf("Reset: robot %d\n",robot_id_u);
         
-  migr[0] = my_position[0] - MIGRATORY_DEST_X;
+  migr[0] = my_position[0] + MIGRATORY_DEST_X;
   migr[1] = my_position[1] + MIGRATORY_DEST_Z;
 }
 
@@ -469,11 +466,12 @@ void update_self_motion(int msl, int msr) {
 	// Update position
 	// my_position[0] += dx;
 	// my_position[1] += dz;
-	my_position[2] += dtheta;
+	// my_position[2] += dtheta;
 
 	// Use KF results
 	my_position[0] = gsl_matrix_get(X_enc,1,0);
 	my_position[1] = gsl_matrix_get(X_enc,0,0);
+	my_position[2] = _odo_enc.heading;
 
 	// Debug, use ground-truth position
 	my_position[0] = -true_position[robot_id][1];
@@ -483,12 +481,14 @@ void update_self_motion(int msl, int msr) {
 	// Keep orientation within 0, 2pi
 	if (my_position[2] > 2*M_PI) my_position[2] -= 2.0*M_PI;
 	if (my_position[2] < 0) my_position[2] += 2.0*M_PI;
-            // printf("Self-estimated of %s X: %.2f, Z: %.2f, Theta: %.4f      \n", robot_name,my_position[0], my_position[1], my_position[2]);
-           // if (true){
+
+	if (_odo_enc.heading > 2*M_PI) _odo_enc.heading -= 2.0*M_PI;
+	if (_odo_enc.heading < 0) _odo_enc.heading += 2.0*M_PI;
+
 	if (VERBOSE){
 		printf("Robot: %d     ", robot_id);
 		printf("Self-estimated X: %.2f, Z: %.2f, Theta: %.4f      ", my_position[0], my_position[1], my_position[2]);
-		printf("KF results: X: %.2f, Z: %.2f, Theta: N/A      ", gsl_matrix_get(X_enc,1,0), gsl_matrix_get(X_enc,0,0));
+		printf("KF results: X: %.2f, Z: %.2f, Theta: %.4f      ", gsl_matrix_get(X_enc,1,0), gsl_matrix_get(X_enc,0,0), _odo_enc.heading);
 		printf("Ground-truth: X: %.2f, Z: %.2f, Theta: %.4f     \n", -true_position[robot_id][1], true_position[robot_id][0], true_position[robot_id][2]);	
 	}
 }
@@ -586,7 +586,7 @@ void reynolds_rules() {
 		float dist_to_migration;
 		float migration_strength;
 		dist_to_migration = sqrt(pow(migr[0]-my_position[0],2)+pow(migr[1]-my_position[1],2));
-                      
+
 		if (dist_to_migration > MIGRATION_WEAKEN_THRESHOLD){
 			// Normal migration
 			migration_strength = 1.0;
@@ -605,6 +605,11 @@ void reynolds_rules() {
 			migr_x = -(migr[0]-my_position[0]) * MIGRATION_WEIGHT;
 			migr_y = (migr[1]-my_position[1]) * MIGRATION_WEIGHT;
 
+			// float theta_migr = atan2(migr[0]-my_position[0], migr[1]-my_position[1]);
+			// float theta_dist = my_position[2] - theta_migr;
+			// migr_x = -dist_to_migration * sinf(theta_dist) * MIGRATION_WEIGHT;
+			// migr_y = dist_to_migration * cosf(theta_dist) * MIGRATION_WEIGHT;
+
 			// printf("migr[0]: %g, my_position[0]: %g      ", migr[0], my_position[0]);
 			// printf("migr[1]: %g, my_position[1]: %g      ", migr[1], my_position[1]);
 			// printf("migr_x: %g, migr_y: %g \n", migr_x, migr_y);
@@ -618,7 +623,7 @@ void reynolds_rules() {
 			speed[robot_id][1] *= cap > migration_strength ? cap : migration_strength;
 		}
 		else{
-			// printf("Robot %d is stopped! \n", robot_id);
+			printf("Robot %d is stopped! \n", robot_id);
 		  speed[robot_id][0] *= 0.001;
 		  speed[robot_id][1] *= 0.001;
 		}
@@ -714,7 +719,7 @@ int main(){
 	//initialize everything
   int time_step = TIME_STEP;
   printf("Detected timestep: %d \n", time_step);
-  
+  init_position(time_step, my_position[1], -my_position[0], my_position[2]); // initialize localization variables
 
 	msl = 0; msr = 0; 
 	max_sens = 0; 
@@ -722,115 +727,116 @@ int main(){
 	
 	// Forever
 	for(;;){
-		if (wb_receiver_get_queue_length(receiver2) > 0) {
+        if (wb_receiver_get_queue_length(receiver2) > 0) {
 			double *inbuffer = (double *) wb_receiver_get_data(receiver2);
-			printf("recevied \n");
-			RULE1_THRESHOLD=inbuffer[0] ;  
-			RULE1_WEIGHT=inbuffer[1];	
-			RULE2_THRESHOLD=inbuffer[2];	
-			RULE2_WEIGHT=0.01*inbuffer[3];	  
-			RULE3_WEIGHT =inbuffer[4];	
-			MIGRATION_WEIGHT=inbuffer[5];	//*2 maybe
-			// if (inbuffer[0] != 'p'){
-			// wb_receiver_next_packet(receiver);}
-			// else {int db;
-						// double test[4];
-						// test[0] = atof(inbuffer[1]);
-						// test[3] = atof(inbuffer[4]);
-
-						printf("recevied:%f %f %f %f %f %f\n",RULE1_THRESHOLD,RULE1_WEIGHT,RULE2_THRESHOLD,RULE2_WEIGHT,RULE3_WEIGHT,MIGRATION_WEIGHT);
+			// printf("recevied \n");
+			// RULE1_THRESHOLD=inbuffer[0]/3.0;  
+			// RULE1_WEIGHT=inbuffer[1]/3.0;	
+			// RULE2_THRESHOLD=inbuffer[2]/3.0;	
+			// RULE2_WEIGHT=0.01*inbuffer[3];	  
+			// RULE3_WEIGHT =inbuffer[4]/3.0;	
+			// MIGRATION_WEIGHT=inbuffer[5]/3.0;	//*2 maybe
 			
-			wb_receiver_next_packet(receiver2);
+			for (int idx;idx < 16;idx++){
+        			    e_puck_matrix[idx] = inbuffer[idx];
+      			}
+			
+			RULE1_THRESHOLD=0.262817;  
+			RULE1_WEIGHT=0.160796;	
+			RULE2_THRESHOLD=0.086089;	
+			RULE2_WEIGHT=0.000928;	  
+			RULE3_WEIGHT =0.002298;	
+			MIGRATION_WEIGHT=0.019997;	//*2 maybe
+
+			// printf("recevied:%f %f %f %f %f %f\n",RULE1_THRESHOLD,RULE1_WEIGHT,RULE2_THRESHOLD,RULE2_WEIGHT,RULE3_WEIGHT,MIGRATION_WEIGHT);
+            wb_receiver_next_packet(receiver2);
 			init_position(time_step, int_position[1], int_position[0], int_position[2]); // initialize localization variables
-			for(int timestep=0;timestep<40000/64;timestep++){
+            for(int timestep=0;timestep<60000/64;timestep++){
 
-				bmsl = 0; bmsr = 0;
-				sum_sensors = 0;
-				max_sens = 0;
-						
-				/* Braitenberg */
-				// indispensible for flocking!
-				for(i=0;i<NB_SENSORS;i++) {
-					distances[i] = wb_distance_sensor_get_value(ds[i]); // Read sensor values
-					sum_sensors += distances[i]; // Add up sensor values
-					max_sens = max_sens > distances[i] ? max_sens:distances[i]; // Check if new highest sensor value
+                bmsl = 0; bmsr = 0;
+                sum_sensors = 0;
+                max_sens = 0;
+                        
+                /* Braitenberg */
+                // indispensible for flocking!
+                for(i=0;i<NB_SENSORS;i++) {
+                    distances[i] = wb_distance_sensor_get_value(ds[i]); // Read sensor values
+                    sum_sensors += distances[i]; // Add up sensor values
+                    max_sens = max_sens > distances[i] ? max_sens:distances[i]; // Check if new highest sensor value
 
-					// Weighted sum of distance sensor values for Braitenburg vehicle
-					bmsr += e_puck_matrix[i] * distances[i];
-					bmsl += e_puck_matrix[i+NB_SENSORS] * distances[i];
-				}
+                    // Weighted sum of distance sensor values for Braitenburg vehicle
+                    bmsr += e_puck_matrix[i] * distances[i];
+                    bmsl += e_puck_matrix[i+NB_SENSORS] * distances[i];
+                }
 
-				// Adapt Braitenberg values (empirical tests)
-				bmsl/=MIN_SENS; bmsr/=MIN_SENS;
-				bmsl+=66; bmsr+=72;
-					
-				/* Send and get information */
-				send_ping();  // sending a ping to other robot, so they can measure their distance to this robot
+                // Adapt Braitenberg values (empirical tests)
+                bmsl/=MIN_SENS; bmsr/=MIN_SENS;
+                bmsl+=66; bmsr+=72;
+                    
+                /* Send and get information */
+                send_ping();  // sending a ping to other robot, so they can measure their distance to this robot
 
-				/// Compute self position
-				prev_my_position[0] = my_position[0];
-				prev_my_position[1] = my_position[1];
-				
-				update_self_motion(msl,msr);
+                /// Compute self position
+                prev_my_position[0] = my_position[0];
+                prev_my_position[1] = my_position[1];
+                
+                update_self_motion(msl,msr);
 
-				compute_position(time_step); // compute localization
-				
-				process_received_ping_messages();
-							
-				speed[robot_id][0] = (1/DELTA_T)*(my_position[0]-prev_my_position[0]);
-				speed[robot_id][1] = (1/DELTA_T)*(my_position[1]-prev_my_position[1]);
-			
-				// Reynold's rules with all previous info (updates the speed[][] table)
-				reynolds_rules();
-			
-				// Compute wheels speed from reynold's speed
-				compute_wheel_speeds(&msl, &msr);
-			
-				// Adapt speed instinct to distance sensor values
-				if (sum_sensors > NB_SENSORS*MIN_SENS) {
-					msl -= msl*max_sens/(2*MAX_SENS);
-					msr -= msr*max_sens/(2*MAX_SENS);
-				}
-			
-				// Add Braitenberg
-				msl += bmsl;
-				msr += bmsr;
+                compute_position(time_step); // compute localization
+                
+                process_received_ping_messages();
+                            
+                speed[robot_id][0] = (1/DELTA_T)*(my_position[0]-prev_my_position[0]);
+                speed[robot_id][1] = (1/DELTA_T)*(my_position[1]-prev_my_position[1]);
+            
+                // Reynold's rules with all previous info (updates the speed[][] table)
+                reynolds_rules();
+            
+                // Compute wheels speed from reynold's speed
+                compute_wheel_speeds(&msl, &msr);
+            
+                // Adapt speed instinct to distance sensor values
+                if (sum_sensors > NB_SENSORS*MIN_SENS) {
+                    msl -= msl*max_sens/(2*MAX_SENS);
+                    msr -= msr*max_sens/(2*MAX_SENS);
+                }
+            
+                // Add Braitenberg
+                msl += bmsl;
+                msr += bmsr;
 
-				// Limit wheel speed in the last step
-				limit(&msl,MAX_SPEED);
-				limit(&msr,MAX_SPEED);
-						
-				// Set speed
-				msl_w = msl*MAX_SPEED_WEB/1000;
-				msr_w = msr*MAX_SPEED_WEB/1000;
-				wb_motor_set_velocity(left_motor, msl_w);
-				wb_motor_set_velocity(right_motor, msr_w);
-			
-				// Continue one step
-				wb_robot_step(TIME_STEP);
+                // Limit wheel speed in the last step
+                limit(&msl,MAX_SPEED);
+                limit(&msr,MAX_SPEED);
+                        
+                // Set speed
+                msl_w = msl*MAX_SPEED_WEB/1000;
+                msr_w = msr*MAX_SPEED_WEB/1000;
+                wb_motor_set_velocity(left_motor, msl_w);
+                wb_motor_set_velocity(right_motor, msr_w);
+            
+                // Continue one step
+                wb_robot_step(TIME_STEP);
 
-				if (robot_id == 0 && VERBOSE)
-					printf("----- Iteration no. %d is finished. -----\n \n", counter);
-				counter++;
-			}
-			wb_robot_step(TIME_STEP);
+                if (robot_id == 0 && VERBOSE)
+                    printf("----- Iteration no. %d is finished. -----\n \n", counter);
+                counter++;
+            }
+            wb_robot_step(TIME_STEP);
 			while (wb_receiver_get_queue_length(receiver) > 0) {
 				wb_receiver_next_packet(receiver);}
 			wb_robot_step(TIME_STEP);
 			char buffer[10];
 			sprintf(buffer,"%1s","p");
 			wb_emitter_send(emitter,buffer,strlen(buffer)); 
-			// printf("finish\n");
-
-		// }
-		}
-		wb_robot_step(TIME_STEP);
+	    }
+        wb_robot_step(TIME_STEP);
 		wb_motor_set_velocity(left_motor, 0);
 		wb_motor_set_velocity(right_motor, 0);
-	}
-	wb_motor_set_velocity(left_motor, 0);
+    }
+    wb_motor_set_velocity(left_motor, 0);
 	wb_motor_set_velocity(right_motor, 0);
-
+    
 	// End of the simulation
 	wb_robot_cleanup();
 	return 0;
