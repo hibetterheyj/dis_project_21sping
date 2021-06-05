@@ -35,17 +35,17 @@
 // ********** Tunable parameters **********
 #define VERBOSE true // Print diagnosis information
 
-#define RULE1_THRESHOLD     0.2   // Threshold to activate aggregation rule. default 0.20
-#define RULE1_WEIGHT        (2.0/10)	   // Weight of aggregation rule. default 0.6/10
+#define RULE1_THRESHOLD     0.262817   // Threshold to activate aggregation rule. default 0.20
+#define RULE1_WEIGHT        (0.160796)	   // Weight of aggregation rule. default 0.6/10
 
-#define RULE2_THRESHOLD     0.15   // Threshold to activate dispersion rule. default 0.15
-#define RULE2_WEIGHT        (0.02/10)	   // Weight of dispersion rule. default 0.02/10
+#define RULE2_THRESHOLD     0.086089   // Threshold to activate dispersion rule. default 0.15
+#define RULE2_WEIGHT        (0.000928)	   // Weight of dispersion rule. default 0.02/10
 
-#define RULE3_WEIGHT        (1.0/10)   // Weight of consistency rule. default 1.0/10
+#define RULE3_WEIGHT        (0.002298)   // Weight of consistency rule. default 1.0/10
 
 #define MIGRATION_WEAKEN_THRESHOLD     1.0   // Min. distance w/o migration weakening penalty
 #define MIGRATION_FREEZE_THRESHOLD     0.2   // Slow down the robot if it's within this distance to migration destination
-#define MIGRATION_WEIGHT    (1.0/10)   // Weight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_WEIGHT    (0.019997)   // Weight of attraction towards the common goal. default 0.01/10
 
 #define MIGRATORY_URGE 1 // Tells the robots if they should just go forward or move towards a specific migratory direction
 
@@ -450,8 +450,8 @@ void update_self_motion(int msl, int msr) {
 	// my_position[2] += dtheta;
 
 	// Use KF results
-	my_position[0] = gsl_matrix_get(X_acc,1,0);
-	my_position[1] = gsl_matrix_get(X_acc,0,0);
+	my_position[0] = gsl_matrix_get(X_enc,1,0);
+	my_position[1] = gsl_matrix_get(X_enc,0,0);
 	my_position[2] = _odo_enc.heading;
 
 	// Debug, use ground-truth position
@@ -469,7 +469,7 @@ void update_self_motion(int msl, int msr) {
 	if (VERBOSE){
 		printf("Robot: %d     ", robot_id);
 		printf("Self-estimated X: %.2f, Z: %.2f, Theta: %.4f      ", my_position[0], my_position[1], my_position[2]);
-		printf("KF results: X: %.2f, Z: %.2f, Theta: %.4f      ", gsl_matrix_get(X_acc,1,0), gsl_matrix_get(X_acc,0,0), _odo_enc.heading);
+		printf("KF results: X: %.2f, Z: %.2f, Theta: %.4f      ", gsl_matrix_get(X_enc,1,0), gsl_matrix_get(X_enc,0,0), _odo_enc.heading);
 		printf("Ground-truth: X: %.2f, Z: %.2f, Theta: %.4f     \n", -true_position[robot_id][1], true_position[robot_id][0], true_position[robot_id][2]);	
 	}
 }

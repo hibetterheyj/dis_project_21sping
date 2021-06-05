@@ -526,7 +526,7 @@ DEF SUPERVISOR Robot {
     }
   ]
   name "super1"
-  controller ""
+  controller "overall_supervisor"
   supervisor TRUE
 }
 DEF epuck0 Robot {
