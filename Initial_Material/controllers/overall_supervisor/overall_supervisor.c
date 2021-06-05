@@ -55,7 +55,7 @@ void supervisor_init() {
   if (emitter!=0) printf("emitter works\n");
   
   super_name=(char*) wb_robot_get_name(); 
-  if (not is_crossing){
+  if (!is_crossing){
     printf("obstacle scenario \n");
     super_id = 0;
   }
