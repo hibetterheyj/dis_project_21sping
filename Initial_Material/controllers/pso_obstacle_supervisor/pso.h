@@ -9,7 +9,7 @@
 
 #define FONT "Arial"
 #define DATASIZE 16     // Number of elements in particle (2 Neurons with 8 proximity sensors 
-#define SWARMSIZE 20
+#define SWARMSIZE 32
 
 // Functions
 double* pso(int,int,double,double,double,double,double,int,int,int); // Run particle swarm optimization

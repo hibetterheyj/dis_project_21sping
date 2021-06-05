@@ -35,10 +35,10 @@
 #define NB 2                            // Number of neighbors on each side
 #define LWEIGHT 2.0                     // Weight of attraction to personal best
 #define NBWEIGHT 2.0                    // Weight of attraction to neighborhood best
-#define VMAX 40                       // Maximum velocity particle can attain
-#define MININIT 0.0                   // Lower bound on initialization value
+#define VMAX 80                       // Maximum velocity particle can attain
+#define MININIT -80.0                   // Lower bound on initialization value
 #define MAXINIT 80.0                    // Upper bound on initialization value
-#define ITS 10                          // Number of iterations to run
+#define ITS 3                         // Number of iterations to run
 // #define DATASIZE 6      // Number of elements in particle
 
 #define ROBOTS 1
@@ -230,11 +230,13 @@ float compute_metric_flocking(){
   
   // Velocity of the team towards the goal direction
   velocity = sqrtf(powf(avg_loc[0]-avg_loc_prev[0],2)+powf(avg_loc[1]-avg_loc_prev[1],2));
+  velocity = sqrtf(powf(avg_loc[0]-avg_loc_prev[0],2));
   velocity /= max_dis;
   
   
   // Overall metric
   float metric = orientation*distance*velocity;
+  metric = velocity;
   
   if (VERBOSE_flocking_metric){
     printf("orientation metric is %g      ",orientation);
@@ -304,48 +306,54 @@ float compute_metric_formation(){
 
 void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors[SWARMSIZE][SWARMSIZE]) {
   float overall_metric=0.0;
+  float final_metric=0.0;
   int step = 0;
   bool run = true;
   double buffer[255];
   // sprintf(buffer,"%1s","p");
-
-  for (int j=0;j<DATASIZE;j++) {
-    buffer[j] = weights[0][j];
-  }
-  wb_emitter_send(emitter2,(void *)buffer,DATASIZE*sizeof(double));
-  printf("send\n");
-  for(int i=0;i<FLOCK_SIZE;i++){
-      wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"), int_head);
-      wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"), int_position[i]);
-  }
-  while(run){
-  double ran = (double)rand()/RAND_MAX;
-    // printf("%f\n",ran);
-    update_loc();
-    
-    send_true();
-    
-    float metric = compute_metric_flocking();
-    // float metric = compute_metric_formation();
-    
-    overall_metric += metric;
-    while (wb_receiver_get_queue_length(receiver) > 0) {
-      // printf("receive inf\n");
-      char *inbuffer = (char*) wb_receiver_get_data(receiver);
-      if (inbuffer[0] == 'p'){
-        run = false;
-        // printf("receive finish\n");
-        // printf("receive finish\n");
-      }
-      wb_receiver_next_packet(receiver);
+  for (int iter=0;iter<2;iter++) {
+    run = true;
+    overall_metric = 0.0;
+    for (int j=0;j<DATASIZE;j++) {
+      buffer[j] = weights[0][j];
     }
-    wb_robot_step(TIME_STEP);
-    step ++;
-    // printf("current step is: %d \n",step);
+    wb_emitter_send(emitter2,(void *)buffer,DATASIZE*sizeof(double));
+    // printf("send\n");
+    for(int i=0;i<FLOCK_SIZE;i++){
+        wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"), int_head);
+        wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"), int_position[i]);
+    }
+    while(run){
+    double ran = (double)rand()/RAND_MAX;
+      // printf("%f\n",ran);
+      update_loc();
+      
+      send_true();
+      
+      float metric = compute_metric_flocking();
+      // float metric = compute_metric_formation();
+      
+      overall_metric += metric;
+      while (wb_receiver_get_queue_length(receiver) > 0) {
+        // printf("receive inf\n");
+        char *inbuffer = (char*) wb_receiver_get_data(receiver);
+        if (inbuffer[0] == 'p'){
+          run = false;
+          // printf("receive finish\n");
+          // printf("receive finish\n");
+        }
+        wb_receiver_next_packet(receiver);
+      }
+      wb_robot_step(TIME_STEP);
+      step ++;
+      // printf("current step is: %d \n",step);
+    }
+    overall_metric /= step;
+    final_metric += overall_metric;
   }
-  overall_metric /= step;
-  fit[0] = overall_metric;
-  printf("perf is: %f \n",overall_metric);
+  // fit[0] = overall_metric;
+  fit[0] = final_metric/2;
+  printf("perf is: %f \n",final_metric/2);
 }
 
 /*
