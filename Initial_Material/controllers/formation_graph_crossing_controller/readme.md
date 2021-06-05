@@ -15,6 +15,19 @@ float init_y[10] = {0.0,  -0.1,   0.1, -0.2,  0.2,   0.0,   0.1, -0.1, 0.2, -0.2
 float bias_x[5] = {0, 0, 0, 0, 0};
 float bias_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
 
+// initial_pos
+		// 10-robot crossing
+		if (robot_id < 5){
+		    // goal distance [-2.8, 0]
+		    goal_pos[0] = my_position[0] - goal_distance[0];
+		    goal_pos[1] = my_position[1] - goal_distance[1];
+		} else {
+		    // goal distance [2.8, 0]
+		    goal_pos[0] = my_position[0] + goal_distance[0];
+		    goal_pos[1] = my_position[1] + goal_distance[1];
+		}
+		// 10-robot crossing
+
 ```
 
 - small bugs in original test_crossing.wbt
