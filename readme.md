@@ -25,6 +25,8 @@
   │   ├── controllers                         # Controllers
   │   │   ├── flocking_crossing_controller	
   │   │   ├── flocking_obstacle_controller
+  │   │   ├── formation_graph_crossing_controller
+  │   │   ├── formation_graph_obstacle_controller
   │   │   └── supervisor						
   │   └── worlds                              # Default testing world
   ├── localization_library                    # Shared localization utilities
@@ -56,7 +58,6 @@
 * `/controller_world/worlds/test_obstacles.wbt`: set *all* robot controllers to be `flocking_obstacle_controller`. 
 * `/controller_world/worlds/test_crossing.wbt`: set *all* robot controllers to be `flocking_crossing_controller`.
 
+### Formation controllers
 
-## Results
-
-* Qualitative results:
+* The usage is similar to the flocking controllers.
