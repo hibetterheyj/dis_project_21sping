@@ -14,6 +14,7 @@
 #define VERBOSE_formation_metric false       // Print metrics of formation
 
 #define FLOCK_SIZE	5		// Number of robots in flock
+#define Rob_SIZE	10		// Number of robots
 #define TIME_STEP	64		// [ms] Length of time step
 
 //Robot speed parameters
@@ -62,17 +63,17 @@
 static FILE *fp_flocking;
 static FILE *fp_formation;
 
-WbNodeRef robs[FLOCK_SIZE];		// Robots nodes
-WbFieldRef robs_trans[FLOCK_SIZE];	// Robots translation fields
-WbFieldRef robs_rotation[FLOCK_SIZE];	// Robots rotation fields
+WbNodeRef robs[Rob_SIZE];		// Robots nodes
+WbFieldRef robs_trans[Rob_SIZE];	// Robots translation fields
+WbFieldRef robs_rotation[Rob_SIZE];	// Robots rotation fields
 WbDeviceTag emitter;			// Single emitter
 WbDeviceTag emitter2;			// Single emitter2
 WbDeviceTag receiver;		           // Single receiver 
 
-double int_position[FLOCK_SIZE][3];
-double int_head[3] = {0.0,0.0,-1.57};
-float loc[FLOCK_SIZE][3];		// Location of everybody in the flock
-float loc_prev[FLOCK_SIZE][3];		// Location of everybody in the flock at last time step
+double int_position[Rob_SIZE][3];
+double int_head[Rob_SIZE][4] ;
+float loc[Rob_SIZE][3];		// Location of everybody in the flock
+float loc_prev[Rob_SIZE][3];		// Location of everybody in the flock at last time step
 float max_dis = DELTA_T*(MAX_SPEED_WEB*MAX_SPEED*WHEEL_RADIUS/1000); //maximal distance possible per timestep
 int super_id;  //Supervisor's ID
 char* super_name;
@@ -111,7 +112,7 @@ void supervisor_init() {
 
   char rob[7] = "epuck0";
     int i;
-    for (i=0;i<FLOCK_SIZE;i++) {
+    for (i=0;i<Rob_SIZE;i++) {
       sprintf(rob,"epuck%d",i+super_id*5);
       robs[i] = wb_supervisor_node_get_from_def(rob);
       robs_trans[i] = wb_supervisor_node_get_field(robs[i],"translation");
@@ -119,24 +120,50 @@ void supervisor_init() {
       loc[i][0] = wb_supervisor_field_get_sf_vec3f(robs_trans[i])[0]; // X
       loc[i][1] = wb_supervisor_field_get_sf_vec3f(robs_trans[i])[2]; // Z
       loc[i][2] = wb_supervisor_field_get_sf_rotation(robs_rotation[i])[3]; // THETA
-      int_position[i][0] = -2.9;
+      int_head[i][0] = wb_supervisor_field_get_sf_rotation(robs_rotation[i])[0];
+      int_head[i][1] = wb_supervisor_field_get_sf_rotation(robs_rotation[i])[1];
+      int_head[i][2] = wb_supervisor_field_get_sf_rotation(robs_rotation[i])[2];
+      int_head[i][3] = wb_supervisor_field_get_sf_rotation(robs_rotation[i])[3];
+      if (i<FLOCK_SIZE) {
+        int_position[i][0] = -0.1;
+      }
+      else{
+        int_position[i][0] = -2.9;
+      }
+      
       int_position[i][1] = 0.0;
+
       switch(i){
-		case 0:
-			int_position[i][2] = 0.0;
-			break;
-		case 1:
-			int_position[i][2] = 0.1;
-			break;
-		case 2:
-			int_position[i][2] = -0.1;
-			break;
-		case 3:
-			int_position[i][2] = 0.2;
-			break;
-		case 4:
-			int_position[i][2] = -0.2;
-			break;
+      case 0:
+        int_position[i][2] = 0.0;
+        break;
+      case 1:
+        int_position[i][2] = -0.1;
+        break;
+      case 2:
+        int_position[i][2] = 0.1;
+        break;
+      case 3:
+        int_position[i][2] = -0.2;
+        break;
+      case 4:
+        int_position[i][2] = 0.2;
+        break;
+      case 5:
+        int_position[i][2] = 0.0;
+        break;
+      case 6:
+        int_position[i][2] = 0.1;
+        break;
+      case 7:
+        int_position[i][2] = -0.1;
+        break;
+      case 8:
+        int_position[i][2] = 0.213892;
+        break;
+      case 9:
+        int_position[i][2] = -0.2;
+        break;
 	}
       }
 }
@@ -147,7 +174,7 @@ void supervisor_init() {
 void update_loc(){
   int i;
        
-  for (i=0;i<FLOCK_SIZE;i++) {
+  for (i=0;i<Rob_SIZE;i++) {
     // Get data
     loc_prev[i][0] = loc[i][0]; // X_prev
     loc_prev[i][1] = loc[i][1]; // Z_prev
@@ -170,10 +197,10 @@ void send_true(){
   char buffer[255];	// Buffer for sending data
   int i;
        
-  for (i=0;i<FLOCK_SIZE;i++) {
+  for (i=0;i<Rob_SIZE;i++) {
     
     // Send it out
-    sprintf(buffer,"%1d#%f#%f#%f",i+super_id*5,loc[i][0],loc[i][1],loc[i][2]);
+    sprintf(buffer,"%1d#%f#%f#%f",i,loc[i][0],loc[i][1],loc[i][2]);
     // printf("Robot %s \n",buffer);
     wb_emitter_send(emitter,buffer,strlen(buffer));
   }
@@ -183,7 +210,9 @@ void send_true(){
  * Compute flocking metrics
  */
 float compute_metric_flocking(){
-  int i; int j;
+  int i; int j; int g;
+  float metric;
+  float avg_metric;
   float orientation = 0;
   float distance;
   float d_1 = 0; //Denominator of distance metric
@@ -195,62 +224,71 @@ float compute_metric_flocking(){
   float avg_loc[2] = {0,0}; //center of the flock
   float avg_loc_prev[2] = {0,0}; //center of the flock (previous)
   
-  
-  for (i=0;i<FLOCK_SIZE;i++) {
-    avg_loc[0] += loc[i][0];
-    avg_loc[1] += loc[i][1];
-    avg_loc_prev[0] += loc_prev[i][0];
-    avg_loc_prev[1] += loc_prev[i][1];
-  }
-  avg_loc[0] /= FLOCK_SIZE;
-  avg_loc[1] /= FLOCK_SIZE;
-  avg_loc_prev[0] /= FLOCK_SIZE;
-  avg_loc_prev[1] /= FLOCK_SIZE;
-  /* orientation between robots */
-  for (i=0;i<FLOCK_SIZE;i++) {
-    for (j=i+1;j<FLOCK_SIZE;j++) {
-      H_diff = fabsf(loc[i][2]-loc[j][2]);
-      orientation += H_diff > M_PI ? 2-H_diff/M_PI : H_diff/M_PI;
-      
-      float delta_pos = sqrtf(powf(loc[i][0]-loc[j][0],2)+powf(loc[i][1]-loc[j][1],2));
-      float c1 = delta_pos/FLOCKING_DIST;
-      float c2 = 1/powf(1 - FLOCKING_DIST + delta_pos, 2);
-      d_2 += c1 < c2 ? c1 : c2;
+  for (g=0;g<2;g++){
+    metric = 0.0;
+    avg_metric = 0.0;
+    avg_loc[0] = 0.0;
+    avg_loc[1] = 0.0;
+    avg_loc_prev[0] = 0.0;
+    avg_loc_prev[1] = 0.0;
+    for (i=0;i<FLOCK_SIZE;i++) {
+      avg_loc[0] += loc[i+5*g][0];
+      avg_loc[1] += loc[i+5*g][1];
+      avg_loc_prev[0] += loc_prev[i+5*g][0];
+      avg_loc_prev[1] += loc_prev[i+5*g][1];
     }
-    d_1 += sqrtf(powf(loc[i][0]-avg_loc[0],2)+powf(loc[i][1]-avg_loc[1],2));
+    avg_loc[0] /= FLOCK_SIZE;
+    avg_loc[1] /= FLOCK_SIZE;
+    avg_loc_prev[0] /= FLOCK_SIZE;
+    avg_loc_prev[1] /= FLOCK_SIZE;
+    /* orientation between robots */
+    for (i=0;i<FLOCK_SIZE;i++) {
+      for (j=i+1;j<FLOCK_SIZE;j++) {
+        H_diff = fabsf(loc[i+5*g][2]-loc[j+5*g][2]);
+        orientation += H_diff > M_PI ? 2-H_diff/M_PI : H_diff/M_PI;
+        
+        float delta_pos = sqrtf(powf(loc[i+5*g][0]-loc[j+5*g][0],2)+powf(loc[i+5*g][1]-loc[j+5*g][1],2));
+        float c1 = delta_pos/FLOCKING_DIST;
+        float c2 = 1/powf(1 - FLOCKING_DIST + delta_pos, 2);
+        d_2 += c1 < c2 ? c1 : c2;
+      }
+      d_1 += sqrtf(powf(loc[i+5*g][0]-avg_loc[0],2)+powf(loc[i+5*g][1]-avg_loc[1],2));
+    }
+    
+    // Orientation between robots
+    orientation = 1 - orientation/(FLOCK_SIZE*(FLOCK_SIZE-1)/2);
+    
+    
+    // Distance between robots
+    distance = (d_2/(FLOCK_SIZE*(FLOCK_SIZE-1)/2))/(1 + d_1/FLOCK_SIZE);
+    
+    
+    // Velocity of the team towards the goal direction
+    velocity = sqrtf(powf(avg_loc[0]-avg_loc_prev[0],2)+powf(avg_loc[1]-avg_loc_prev[1],2));
+    velocity = sqrtf(powf(avg_loc[0]-avg_loc_prev[0],2));
+    velocity /= max_dis;
+    
+    
+    // Overall metric
+    metric = orientation*distance*velocity;
+    // metric = velocity;
+    avg_metric += metric;
+    
+    if (VERBOSE_flocking_metric){
+      printf("orientation metric is %g      ",orientation);
+      // printf("Denominator of distance metric is %g, Numerator of distance metric is %g \n",1 + d_1/FLOCK_SIZE,d_2/(FLOCK_SIZE*(FLOCK_SIZE-1)/2));
+      printf("distance metric is %g     ",distance);
+      printf("velocity metric is %g \n",velocity);
+      printf("overall metric is %g \n",metric);
+    }
+    if( fp_flocking != NULL){
+      float time_now_s = wb_robot_get_time();
+      fprintf(fp_flocking, "%g; %g; %g; %g; %g\n",
+        time_now_s, orientation, distance, velocity, metric);
+    }
   }
-  
-  // Orientation between robots
-  orientation = 1 - orientation/(FLOCK_SIZE*(FLOCK_SIZE-1)/2);
-  
-  
-  // Distance between robots
-  distance = (d_2/(FLOCK_SIZE*(FLOCK_SIZE-1)/2))/(1 + d_1/FLOCK_SIZE);
-  
-  
-  // Velocity of the team towards the goal direction
-  velocity = sqrtf(powf(avg_loc[0]-avg_loc_prev[0],2)+powf(avg_loc[1]-avg_loc_prev[1],2));
-  velocity = sqrtf(powf(avg_loc[0]-avg_loc_prev[0],2));
-  velocity /= max_dis;
-  
-  
-  // Overall metric
-  float metric = orientation*distance*velocity;
-  metric = velocity;
-  
-  if (VERBOSE_flocking_metric){
-    printf("orientation metric is %g      ",orientation);
-    // printf("Denominator of distance metric is %g, Numerator of distance metric is %g \n",1 + d_1/FLOCK_SIZE,d_2/(FLOCK_SIZE*(FLOCK_SIZE-1)/2));
-    printf("distance metric is %g     ",distance);
-    printf("velocity metric is %g \n",velocity);
-    printf("overall metric is %g \n",metric);
-  }
-  if( fp_flocking != NULL){
-    float time_now_s = wb_robot_get_time();
-    fprintf(fp_flocking, "%g; %g; %g; %g; %g\n",
-      time_now_s, orientation, distance, velocity, metric);
-  }
-  return metric;
+  avg_metric /= 2;
+  return avg_metric;
 }
 
 /*
@@ -310,7 +348,6 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
   int step = 0;
   bool run = true;
   double buffer[255];
-  char *inbuffer;
   // sprintf(buffer,"%1s","p");
   for (int iter=0;iter<2;iter++) {
     run = true;
@@ -320,12 +357,12 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
     }
     wb_emitter_send(emitter2,(void *)buffer,DATASIZE*sizeof(double));
     // printf("send\n");
-    for(int i=0;i<FLOCK_SIZE;i++){
-        wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"), int_head);
+    for(int i=0;i<Rob_SIZE;i++){
+        wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"), int_head[i]);
         wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"), int_position[i]);
     }
     while(run){
-    double ran = (double)rand()/RAND_MAX;
+    // double ran = (double)rand()/RAND_MAX;
       // printf("%f\n",ran);
       update_loc();
       
@@ -337,7 +374,7 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
       overall_metric += metric;
       while (wb_receiver_get_queue_length(receiver) > 0) {
         // printf("receive inf\n");
-        inbuffer = (char*) wb_receiver_get_data(receiver);
+        char *inbuffer = (char*) wb_receiver_get_data(receiver);
         if (inbuffer[0] == 'p'){
           run = false;
           // printf("receive finish\n");
@@ -354,7 +391,7 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
   }
   // fit[0] = overall_metric;
   fit[0] = final_metric/2;
-  printf("perf is: %f \n",final_metric/2);
+  // printf("perf is: %f \n",final_metric/2);
 }
 
 /*
@@ -377,7 +414,7 @@ int main(int argc, char *args[]) {
   fp_formation = fopen("formation_metrics.csv","w");
   fprintf(fp_formation, "time; distance; velocity towards goal direction; overall\n");
   
-  for(int p=0;p<2;p++){
+  for(int p=0;p<10;p++){
     weights = pso(SWARMSIZE,NB,LWEIGHT,NBWEIGHT,VMAX,MININIT,MAXINIT,ITS,DATASIZE,ROBOTS);
     
     // Set robot weights to optimization results

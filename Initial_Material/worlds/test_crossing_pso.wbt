@@ -1,4 +1,4 @@
-#VRML_SIM R2019b utf8
+#VRML_SIM R2020b utf8
 WorldInfo {
   info [
     "Description"
@@ -6,6 +6,7 @@ WorldInfo {
     "Date: DD MMM YYYY"
   ]
   basicTimeStep 16
+  coordinateSystem "NUE"
 }
 Viewpoint {
   orientation -0.9998684634686608 0.016207307512567284 0.0006155842853415571 1.15569
@@ -99,6 +100,56 @@ DEF long_rock_3 Solid {
   name "short brick"
   boundingObject DEF U_END_BOX Box {
     size 0.6 0.2 0.01
+  }
+}
+DEF long_rock_3 Solid {
+  translation -3.09 0 3.30588e-07
+  rotation 0 1 0 1.5708
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry Box {
+        size 0.6 0.2 0.01
+      }
+    }
+  ]
+  name "short brick(1)"
+  boundingObject DEF U_END_BOX Box {
+    size 3 0.2 0.01
+  }
+}
+DEF long_rock_3 Solid {
+  translation 0.09 0 -1.13497e-05
+  rotation 0 1 0 1.5708
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry Box {
+        size 0.6 0.2 0.01
+      }
+    }
+  ]
+  name "short brick(2)"
+  boundingObject DEF U_END_BOX Box {
+    size 3 0.2 0.01
   }
 }
 DEF long_rock_4 Solid {
@@ -223,28 +274,29 @@ DEF long_rock_11 Solid {
 }
 DEF SUPERVISOR Robot {
   children [
+    Emitter {
+      name "emitter2"
+      channel 2
+    }
+    Receiver {
+      channel 1
+    }
     DEF emitter Emitter {
       channel 1
     }
   ]
   name "super0"
-  controller ""
-  supervisor TRUE
-}
-DEF SUPERVISOR Robot {
-  children [
-    DEF emitter Emitter {
-      channel 2
-    }
-  ]
-  name "super1"
-  controller ""
+  controller "pso_crossing_supervisor"
   supervisor TRUE
 }
 DEF epuck1 Robot {
   translation -0.1 0 -0.1
   rotation 0 1 0 1.57
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -1584,7 +1636,7 @@ DEF epuck1 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck1(1)"
+  name "epuck1"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -1620,13 +1672,17 @@ DEF epuck1 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck5 Robot {
   translation -2.9 0 0
   rotation 0 1 0 -1.5708
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -2966,7 +3022,7 @@ DEF epuck5 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck5(1)"
+  name "epuck5"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -3002,13 +3058,17 @@ DEF epuck5 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck0 Robot {
   translation -0.1 0 0
   rotation 0 1 0 1.57
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -4348,7 +4408,7 @@ DEF epuck0 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck0(1)"
+  name "epuck0"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -4384,13 +4444,17 @@ DEF epuck0 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
   translation -0.1 0 0.1
   rotation 0 1 0 1.57
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -5730,7 +5794,7 @@ DEF epuck2 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck2(1)"
+  name "epuck2"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -5766,13 +5830,17 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck3 Robot {
   translation -0.1 0 -0.2
   rotation 0 1 0 1.57
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -7112,7 +7180,7 @@ DEF epuck3 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck3(1)"
+  name "epuck3"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -7148,13 +7216,17 @@ DEF epuck3 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
   translation -0.1 0 0.2
   rotation 0 1 0 1.57
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -8494,7 +8566,7 @@ DEF epuck4 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck4(1)"
+  name "epuck4"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -8530,13 +8602,17 @@ DEF epuck4 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck6 Robot {
   translation -2.9 0 0.1
   rotation 0 1 0 -1.57
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -9876,7 +9952,7 @@ DEF epuck6 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck6(1)"
+  name "epuck6"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -9912,13 +9988,17 @@ DEF epuck6 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck7 Robot {
   translation -2.9 0 -0.1
   rotation 0 1 0 -1.57
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -11258,7 +11338,7 @@ DEF epuck7 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck7(1)"
+  name "epuck7"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -11294,13 +11374,17 @@ DEF epuck7 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck8 Robot {
   translation -2.9 0 0.213892
   rotation 0 1 0 -1.57
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -12640,7 +12724,7 @@ DEF epuck8 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck8(1)"
+  name "epuck8"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -12676,13 +12760,17 @@ DEF epuck8 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }
 DEF epuck9 Robot {
   translation -2.9 0 -0.2
-  rotation 0 1 0 -1.57
+  rotation 0 -1 0 1.57
   children [
+    Receiver {
+      name "receiver2"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -14022,7 +14110,7 @@ DEF epuck9 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "epuck9(1)"
+  name "epuck9"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {
@@ -14058,6 +14146,6 @@ DEF epuck9 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "crossing_pso_controller"
   cpuConsumption 1.11
 }

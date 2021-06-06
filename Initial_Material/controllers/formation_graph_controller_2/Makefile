@@ -1,9 +1,23 @@
+# Copyright 1996-2020 Cyberbotics Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 ### Generic Makefile.include for Webots controllers, physics plugins, robot
 ### window libraries, remote control libraries and other libraries
 ### to be used with GNU make
 ###
-### Platforms: Windows, Mac OS X, Linux
-### Languages: C, C++, Java
+### Platforms: Windows, macOS, Linux
+### Languages: C, C++
 ###
 ### Authors: Olivier Michel, Yvan Bourquin, Fabien Rohrer
 ###          Edmund Ronald, Sergei Poskriakov
@@ -36,15 +50,24 @@
 ### INCLUDE = -I"/my_library_path/include"
 ### LIBRARIES = -L"/path/to/my/library" -lmy_library -lmy_other_library
 ###
-### --- Webots included libraries ---
-### In your C++ program, if you want to use the C API, add
+### ---- Linking options ----
+### if special linking flags are needed:
+### LFLAGS = -s
+###
+### ---- Webots included libraries ----
+### if you want to use the Webots C API in your C++ controller program:
 ### USE_C_API = true
-### or if you want to link with the Qt framework embedded in Webots:
-### QT = core gui widgets network
+###
+### ---- Debug mode ----
+### if you want to display the gcc command line for compilation and link, as
+### well as the rm command details used for cleaning:
+### VERBOSE = 1
 ###
 ###-----------------------------------------------------------------------------
 
-C_SOURCES = flocking_crossing_controller.c  ../../../localization_library/odometry.c ../../../localization_library/kalman.c
+### Do not modify: this includes Webots global Makefile.include
+### Do not modify: this includes Webots global Makefile.include
+C_SOURCES = formation_graph_controller_2.c ../../../localization_library/odometry.c ../../../localization_library/kalman.c
 
 # yujie
 # https://stackoverflow.com/questions/714100/os-detecting-makefile
@@ -56,8 +79,7 @@ else
 	LIBRARIES = -L"C:\msys64\mingw64\lib" -llibgsl
 endif
 
-### Do not modify: this includes Webots global Makefile.include
-space :=
-space +=
+null :=
+space := $(null) $(null)
 WEBOTS_HOME_PATH=$(subst $(space),\ ,$(strip $(subst \,/,$(WEBOTS_HOME))))
 include $(WEBOTS_HOME_PATH)/resources/Makefile.include

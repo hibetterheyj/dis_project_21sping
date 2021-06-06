@@ -42,8 +42,8 @@
 /**************************************************/
 #define NB_SENSORS           8
 /* Formation parameters */
-#define FLOCK_SIZE	  5 // Size of formation
-#define EDGE_SIZE	  4 // Size of edges
+#define FLOCK_SIZE	  2 // Size of formation
+#define EDGE_SIZE	  1 // Size of edges
 #define AXLE_LENGTH          0.052     // Distance between wheels of robot
 #define SPEED_UNIT_RADS      0.0628    // Conversion factor between speed unit to radian per second
 #define WHEEL_RADIUS         0.0205    // Wheel radius in meters
@@ -60,11 +60,11 @@
 #define VERBOSE_ACC_MEAN false  // Print accelerometer mean values
 #define VERBOSE_ENC false       // Print encoder values
 #define VERBOSE_GPS false       // Print GPS values
-#define VERBOSE_SPEED false       // Print SPEED values
+#define VERBOSE_SPEED true       // Print SPEED values
 
 #define LEADER_MODE false // use leader mode
 #define ODO_TYPE 2 // 1: ACC-based KF, 2: ENC-based KF, 3: ACC-based position+ENC-based heading
-#define USE_TRUE true
+#define USE_TRUE false
 
 /**************************************************/
 /* WEBOTS INITIALIZATION */
@@ -100,13 +100,14 @@ float THRESHOLD=0.3;	// Convergence threshold
 // int Interconn[16] = {-5,-15,-20,6,4,6,3,5,4,4,6,-18,-15,-5,5,3};
 int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18};
 // weight for generated obstacle speed
-float ob_weight = 3;
+float ob_weight = 4;
 
 // bias vector
 float bias_x[5] = {0, 0, 0, 0, 0};
+// float bias_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
 float bias_y[5] = {0.0, 0.1, -0.1, 0.2, -0.2};
 
-double weight_coefficient = 1;
+double weight_coefficient = 4;
 
 /**************************************************/
 /* ROBOT VARIABLES INITIALIZATION */
@@ -711,6 +712,12 @@ void update_self_motion(int msl, int msr) {
 
 /* Compute wheel speeds arcording to graph */
 void compute_wheel_speeds(int *msl, int *msr, gsl_matrix * laplacian){
+	// for(int j = 0; j < FLOCK_SIZE; j++){
+  	    // for(int i = 0; i < FLOCK_SIZE; i++){
+  	        // printf("GSL matrix laplacian(%d. %d) = %f\n", i, j, gsl_matrix_get(laplacian, i, j));
+  	    // }
+	// }
+
 	// x'= -L(x-b), Same for y
 	//laplacian[robot_id:] * (x-b)
 	// init with speed every time with zero
@@ -769,24 +776,24 @@ void compute_wheel_speeds(int *msl, int *msr, gsl_matrix * laplacian){
 	// goal_speed[0] = 0;
 	// goal_speed[1] = 0;
 	printf("Error (x, y) =  (%f, %f)\n", err[0], err[1]);
-	if (VERBOSE_SPEED){
-  	    printf ("X-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][0], goal_speed[0]);
-  	    printf ("Y-lap speed vs goal speed: (%f, %f) \n", speed[robot_id][1], goal_speed[1]);
-	}
         	if (LEADER_MODE == true){
 				if (robot_id % 5 == 0){
 				final_speed[robot_id][0] = goal_speed[0];
-				final_speed[robot_id][1] = - goal_speed[1];
+				final_speed[robot_id][1] = goal_speed[1];
 				}
 				else{
 					final_speed[robot_id][0] = speed[robot_id][0];
-					final_speed[robot_id][1] = - speed[robot_id][1];
+					final_speed[robot_id][1] = speed[robot_id][1];
 				}
         	}
         	else {
 				final_speed[robot_id][0] = speed[robot_id][0] + goal_speed[0];
-				final_speed[robot_id][1] = -speed[robot_id][1] - goal_speed[1];
+				final_speed[robot_id][1] = speed[robot_id][1] + goal_speed[1];
 			}
+	if (VERBOSE_SPEED){
+  	    printf ("X-formation, goal, final: (%f, %f, %f) \n", speed[robot_id][0], goal_speed[0], final_speed[robot_id][0] );
+  	    printf ("Y-formation, goal, final: (%f, %f, %f) \n", speed[robot_id][1], goal_speed[1], final_speed[robot_id][1] );
+	}
 	// printf ("speed and angle is: (%f, %f) %f\n", speed[robot_id][0], speed[robot_id][1],true_position[robot_id][2]);
 	//printf ("Current speed of agent %d (x, y): (%f, %f) \n", robot_id, speed[robot_id][0], speed[robot_id][1]);
 
@@ -810,9 +817,11 @@ void compute_wheel_speeds(int *msl, int *msr, gsl_matrix * laplacian){
 		final_speed[robot_id][0] = -tmp_y;
 		final_speed[robot_id][1] = tmp_x;
 		x = final_speed[robot_id][0]*cosf(global_position[robot_id][2])  + final_speed[robot_id][1]*sinf(global_position[robot_id][2]); // x in robot coordinates
-		y = -final_speed[robot_id][0]*sinf(global_position[robot_id][2] ) + final_speed[robot_id][1]*cosf(global_position[robot_id][2]); // y in robot coordinates
+		y = -final_speed[robot_id][0]*sinf(global_position[robot_id][2]) + final_speed[robot_id][1]*cosf(global_position[robot_id][2]); // y in robot coordinates
 
 	}
+	
+                 printf ("Current speed (msl, msr) of agent %d: (%d, %d) \n", robot_id, *msl, *msr);
 
 	float Ku = 0.2;   // Forward control coefficient
 	float Kw = 0.5;  // Rotational control coefficient
@@ -842,37 +851,8 @@ int main(){
 	gsl_matrix * weight  = gsl_matrix_alloc (EDGE_SIZE, EDGE_SIZE);
 	gsl_matrix * laplacian  = gsl_matrix_alloc (FLOCK_SIZE, FLOCK_SIZE);
 	// Incidence Matrix V (FLOCK_SIZE) xE
-	if (EDGE_SIZE == 4){
-	    double incidence54[] = {-1, 0, 0, 0,
-	                                        1,  -1, 0, 0,
-	                                        0,  1, -1, 0,
-	                                        0,  0,  1, -1,
-	      		      0,  0,  0, 1};
-	    incidence_view  = gsl_matrix_view_array(incidence54, 5, 4);
-	} else if(EDGE_SIZE == 7){
-	    double incidence57[] = {-1, 0, 0, 0, 1, 0, 0,
-	                                        1,  -1, 0, 0, 0, 1, 0,
-	                                        0,  1, -1, 0, -1, 0, 1,
-	                                        0,  0,  1, -1, 0, -1, 0,
-	      		      0,  0,  0, 1, 0, 0, -1};
-	    incidence_view  =  gsl_matrix_view_array(incidence57, 5, 7);
-	} else if(EDGE_SIZE == 9){
-	    double incidence59[] = {-1, 0,  0,  0,   1,  0,  0, -1, 0,
-	                                             1, -1, 0,  0,   0,  1,  0,  0, -1,
-	                                             0,  1, -1,  0, -1,  0,  1, 0, 0,
-	                                             0,  0,  1, -1,  0, -1,  0, 1, 0,
-	      		           0,  0,  0,  1,   0,  0, -1, 0, 1};
-	    incidence_view  =  gsl_matrix_view_array(incidence59, 5, 9);
-	} else if(EDGE_SIZE == 10){
-	    double incidence510[] = {-1, 0,  0,  0,   1,  0,  0, -1, 0, 1,
-	                                             1, -1, 0,  0,   0,  1,  0,  0, -1, 0,
-	                                             0,  1, -1,  0, -1,  0,  1, 0, 0, 0, 0,
-	                                             0,  0,  1, -1,  0, -1,  0, 1, 0, 0,
-	      		           0,  0,  0,  1,   0,  0, -1, 0, 1, -1};
-	    incidence_view  =  gsl_matrix_view_array(incidence510, 5, 10);
-	} else{
-	    printf("ERROR: Only supported with 4/7/9/10 edges connection!\n");
-	}
+	double incidence21[] = {-1, 1};
+	incidence_view  = gsl_matrix_view_array(incidence21, 2, 1);
 
 	// Weight Matrix E x E
 	compute_weight(weight, weight_coefficient, EDGE_SIZE);

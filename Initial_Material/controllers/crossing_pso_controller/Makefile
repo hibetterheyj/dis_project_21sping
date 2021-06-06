@@ -44,7 +44,7 @@
 ###
 ###-----------------------------------------------------------------------------
 
-C_SOURCES = flocking_crossing_controller.c  ../../../localization_library/odometry.c ../../../localization_library/kalman.c
+C_SOURCES = crossing_pso_controller.c odometry.c kalman.c
 
 # yujie
 # https://stackoverflow.com/questions/714100/os-detecting-makefile

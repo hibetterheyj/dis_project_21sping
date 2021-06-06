@@ -73,7 +73,7 @@ WbDeviceTag right_motor; //handler for the right wheel of the robot
 // int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
 
 int e_puck_matrix[16] = {42.218327,59.493205,41.934509,49.085423,23.414172,57.789951,20.330942,42.331566,-19.902089,23.479039,39.421804,56.295590,39.940728,41.974669,20.274993,2.085171}; // for obstacle avoidance
-
+// 58.261649,45.692928,155.883219,51.728131,28.643290,17.006397,67.130687,12.642481,72.129038,41.044585,7.450565,5.272646,15.925893,33.667031,56.279358,-27.638390
 
 WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
 WbDeviceTag receiver;		// Handle for the receiver node
@@ -724,11 +724,12 @@ int main(){
 	msl = 0; msr = 0; 
 	max_sens = 0; 
 	counter = 0;
+	double * inbuffer;
 	
 	// Forever
 	for(;;){
         if (wb_receiver_get_queue_length(receiver2) > 0) {
-			double *inbuffer = (double *) wb_receiver_get_data(receiver2);
+			inbuffer = (double *) wb_receiver_get_data(receiver2);
 			// printf("recevied \n");
 			// RULE1_THRESHOLD=inbuffer[0]/3.0;  
 			// RULE1_WEIGHT=inbuffer[1]/3.0;	
@@ -740,6 +741,7 @@ int main(){
 			for (int idx;idx < 16;idx++){
         			    e_puck_matrix[idx] = inbuffer[idx];
       			}
+
 			
 			RULE1_THRESHOLD=0.262817;  
 			RULE1_WEIGHT=0.160796;	
@@ -747,6 +749,13 @@ int main(){
 			RULE2_WEIGHT=0.000928;	  
 			RULE3_WEIGHT =0.002298;	
 			MIGRATION_WEIGHT=0.019997;	//*2 maybe
+			
+			// RULE1_THRESHOLD=inbuffer[0]/240.0;  
+			// RULE1_WEIGHT=inbuffer[1]/240.0;	
+			// RULE2_THRESHOLD=inbuffer[2]/240.0;	
+			// RULE2_WEIGHT=0.01*inbuffer[3]/80.0;	  
+			// RULE3_WEIGHT =inbuffer[4]/240.0;	
+			// MIGRATION_WEIGHT=inbuffer[5]/240.0;	//*2 maybe
 
 			// printf("recevied:%f %f %f %f %f %f\n",RULE1_THRESHOLD,RULE1_WEIGHT,RULE2_THRESHOLD,RULE2_WEIGHT,RULE3_WEIGHT,MIGRATION_WEIGHT);
             wb_receiver_next_packet(receiver2);

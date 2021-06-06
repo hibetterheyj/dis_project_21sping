@@ -9,8 +9,8 @@ WorldInfo {
   coordinateSystem "NUE"
 }
 Viewpoint {
-  orientation 0.1682479903832704 0.9308860364983195 0.32425884842890595 4.069797820347303
-  position -6.032859750991124 3.3511156520458325 -1.2037785785385937
+  orientation -0.9998684634686608 0.016207307512567284 0.0006155842853415571 1.15569
+  position -1.60662 4.84674 2.3705
 }
 PointLight {
   intensity 0.5
@@ -11289,7 +11289,7 @@ DEF epuck7 Robot {
   cpuConsumption 1.11
 }
 DEF epuck8 Robot {
-  translation -2.9 0 0.2
+  translation -2.9 0 0.213892
   rotation 0 1 0 -1.57
   children [
     GPS {
