@@ -49,7 +49,7 @@ float init_z[FLOCK_SIZE] = {-0.1, -0.1, -0.1, -0.1, -0.1, -2.9, -2.9, -2.9, -2.9
 #define POS_ACC_KF		1
 #define POS_DUMMY_ODO	2
 #define POS_GT			3
-#define POSITIONING_MODE POS_ENC_KF
+#define POSITIONING_MODE POS_DUMMY_ODO
 
 /********** Fixed parameters *********/
 
