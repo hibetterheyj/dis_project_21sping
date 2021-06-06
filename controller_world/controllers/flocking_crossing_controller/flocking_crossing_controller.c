@@ -104,17 +104,18 @@ WbDeviceTag right_motor; //handler for the right wheel of the robot
 WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
 WbDeviceTag receiver;		// Handle for the receiver node
 WbDeviceTag emitter;		// Handle for the emitter node
-// int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
+// manually
+// float e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
 
-// float e_puck_matrix[16] = {52.274113,57.866476,22.354856,14.783678,36.150774,-27.075218,-37.993591,-2.832042,-73.899806,-71.668693,-27.564296,39.211655,69.764952,6.206511,45.382842,15.121165};
-// MAGIC ,random seed 3
+// train on obstacle scenario (overall metric)
 // float e_puck_matrix[16] = {35.737448,74.590979,0.799460,59.309821,44.004261,-18.058475,-48.716506,-25.826799,-8.595878,-65.631655,-11.046514,70.362344,58.955050,37.671764,56.756920,23.682108};
 
+// train on obstacle scenario (only velocity metric)
 // float e_puck_matrix[16] = {24.351942,33.571570,55.450063,4.269430,54.309433,-50.717433,-58.774119,-6.636275,-8.126580,-49.722860,-44.392895,69.191508,17.980886,73.733901,33.006198,30.728218};
-// float e_puck_matrix[16] = {66.368320,60.113071,33.714340,15.492962,12.742487,-67.146613,-42.106365,-77.785065,-89.775335,-53.674306,-57.752630,66.308834,16.081680,44.737444,17.352080,79.755359};
 
-// float e_puck_matrix[16] = {23.061647,17.485495,76.482905,78.200887,44.600159,-10.493693,-26.762293,-41.921438,-49.298313,-59.001464,-8.459376,27.383873,23.295397,1.616715,26.315517,11.715610};
+// train on crossing scenario
 float e_puck_matrix[16] = {55.833161,75.721045,58.451817,17.579143,73.269155,-63.305075,-20.443715,-28.786782,-31.885199,-51.941929,-69.992254,9.064695,78.617898,8.879129,30.752559,71.206058};
+
 int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1) robot ID
 float relative_pos[FLOCK_SIZE][3];	// relative X, Z, Theta of all robots
 float prev_relative_pos[FLOCK_SIZE][3];	// Previous relative  X, Z, Theta values
