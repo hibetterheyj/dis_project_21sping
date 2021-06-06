@@ -2,6 +2,9 @@ clear all
 close all
 clc
 addpath("functions")
+% If accelerometer positioning is wrong, make clean and rebuild the 
+% controller (often occurs after the first build of a new modification in 
+% the code)
 %% results plotting
 %opening and loading logs file
 fid= fopen('../Initial_Material/controllers/localization_controller/logs.csv');
