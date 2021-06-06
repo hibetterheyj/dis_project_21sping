@@ -724,12 +724,11 @@ int main(){
 	msl = 0; msr = 0; 
 	max_sens = 0; 
 	counter = 0;
-	double * inbuffer;
 	
 	// Forever
 	for(;;){
         if (wb_receiver_get_queue_length(receiver2) > 0) {
-			inbuffer = (double *) wb_receiver_get_data(receiver2);
+			double *inbuffer = (double *) wb_receiver_get_data(receiver2);
 			// printf("recevied \n");
 			// RULE1_THRESHOLD=inbuffer[0]/3.0;  
 			// RULE1_WEIGHT=inbuffer[1]/3.0;	
@@ -738,8 +737,12 @@ int main(){
 			// RULE3_WEIGHT =inbuffer[4]/3.0;	
 			// MIGRATION_WEIGHT=inbuffer[5]/3.0;	//*2 maybe
 			
-			for (int idx;idx < 16;idx++){
+			for (int idx=0;idx < 16;idx++){
         			    e_puck_matrix[idx] = inbuffer[idx];
+      			}
+      			
+      			for (int idx=5;idx < 10;idx++){
+        			    e_puck_matrix[idx] = -inbuffer[idx];
       			}
 
 			

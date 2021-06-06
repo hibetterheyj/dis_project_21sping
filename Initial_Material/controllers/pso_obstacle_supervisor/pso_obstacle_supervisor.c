@@ -35,8 +35,8 @@
 #define NB 2                            // Number of neighbors on each side
 #define LWEIGHT 2.0                     // Weight of attraction to personal best
 #define NBWEIGHT 2.0                    // Weight of attraction to neighborhood best
-#define VMAX 80                       // Maximum velocity particle can attain
-#define MININIT -80.0                   // Lower bound on initialization value
+#define VMAX 40                       // Maximum velocity particle can attain
+#define MININIT 0.0                  // Lower bound on initialization value
 #define MAXINIT 80.0                    // Upper bound on initialization value
 #define ITS 3                         // Number of iterations to run
 // #define DATASIZE 6      // Number of elements in particle
@@ -310,7 +310,6 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
   int step = 0;
   bool run = true;
   double buffer[255];
-  char *inbuffer;
   // sprintf(buffer,"%1s","p");
   for (int iter=0;iter<2;iter++) {
     run = true;
@@ -337,7 +336,7 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
       overall_metric += metric;
       while (wb_receiver_get_queue_length(receiver) > 0) {
         // printf("receive inf\n");
-        inbuffer = (char*) wb_receiver_get_data(receiver);
+        char *inbuffer = (char*) wb_receiver_get_data(receiver);
         if (inbuffer[0] == 'p'){
           run = false;
           // printf("receive finish\n");
@@ -354,7 +353,7 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
   }
   // fit[0] = overall_metric;
   fit[0] = final_metric/2;
-  printf("perf is: %f \n",final_metric/2);
+  // printf("perf is: %f \n",final_metric/2);
 }
 
 /*

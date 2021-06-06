@@ -36,8 +36,8 @@
 #define NB 2                            // Number of neighbors on each side
 #define LWEIGHT 2.0                     // Weight of attraction to personal best
 #define NBWEIGHT 2.0                    // Weight of attraction to neighborhood best
-#define VMAX 80                       // Maximum velocity particle can attain
-#define MININIT -80.0                   // Lower bound on initialization value
+#define VMAX 40                       // Maximum velocity particle can attain
+#define MININIT 0.0                  // Lower bound on initialization value
 #define MAXINIT 80.0                    // Upper bound on initialization value
 #define ITS 3                         // Number of iterations to run
 // #define DATASIZE 6      // Number of elements in particle
@@ -224,9 +224,9 @@ float compute_metric_flocking(){
   float avg_loc[2] = {0,0}; //center of the flock
   float avg_loc_prev[2] = {0,0}; //center of the flock (previous)
   
-  for (g=0;g<2;g++){
+  avg_metric = 0.0;
+  for (g=0;g<1;g++){
     metric = 0.0;
-    avg_metric = 0.0;
     avg_loc[0] = 0.0;
     avg_loc[1] = 0.0;
     avg_loc_prev[0] = 0.0;
@@ -287,7 +287,7 @@ float compute_metric_flocking(){
         time_now_s, orientation, distance, velocity, metric);
     }
   }
-  avg_metric /= 2;
+  // avg_metric /= 2;
   return avg_metric;
 }
 
@@ -348,6 +348,7 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
   int step = 0;
   bool run = true;
   double buffer[255];
+  // double test_buffer[16] = {-29.786929,-110.261668,30.514219,-52.203088,-54.998877,-85.627968,-81.578241,-52.887138,-104.088529,43.690877,-58.564927,-14.587816,47.761807,-71.875291,12.208054,-9.78};
   // sprintf(buffer,"%1s","p");
   for (int iter=0;iter<2;iter++) {
     run = true;
@@ -355,6 +356,7 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
     for (int j=0;j<DATASIZE;j++) {
       buffer[j] = weights[0][j];
     }
+    
     wb_emitter_send(emitter2,(void *)buffer,DATASIZE*sizeof(double));
     // printf("send\n");
     for(int i=0;i<Rob_SIZE;i++){
