@@ -47,7 +47,6 @@ float init_z[FLOCK_SIZE] = {-2.9, -2.9, -2.9, -2.9, -2.9};
 #define POS_ENC_KF		0
 #define POS_ACC_KF		1
 #define POS_DUMMY_ODO	2
-#define POS_GT			3
 #define POSITIONING_MODE POS_ENC_KF
 
 /********** Fixed parameters *********/
@@ -102,10 +101,10 @@ WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
 WbDeviceTag receiver;		// Handle for the receiver node
 WbDeviceTag emitter;		// Handle for the emitter node
 // manually
-float e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
+// float e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
 
 // train on obstacle scenario (overall metric)
-// float e_puck_matrix[16] = {35.737448,74.590979,0.799460,59.309821,44.004261,-18.058475,-48.716506,-25.826799,-8.595878,-65.631655,-11.046514,70.362344,58.955050,37.671764,56.756920,23.682108};
+float e_puck_matrix[16] = {35.737448,74.590979,0.799460,59.309821,44.004261,-18.058475,-48.716506,-25.826799,-8.595878,-65.631655,-11.046514,70.362344,58.955050,37.671764,56.756920,23.682108};
 
 // train on obstacle scenario (only velocity metric)
 // float e_puck_matrix[16] = {24.351942,33.571570,55.450063,4.269430,54.309433,-50.717433,-58.774119,-6.636275,-8.126580,-49.722860,-44.392895,69.191508,17.980886,73.733901,33.006198,30.728218};
@@ -117,13 +116,12 @@ int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1) 
 float relative_pos[FLOCK_SIZE][3];	// relative X, Z, Theta of all robots
 float prev_relative_pos[FLOCK_SIZE][3];	// Previous relative  X, Z, Theta values
 float my_position[3];     		// X, Z, Theta of the current robot
-float prev_my_position[3];  		// X, Z, Theta of the current robot in the previous time step
+float prev_my_position[3];  	// X, Z, Theta of the current robot in the previous time step
 float speed[FLOCK_SIZE][2];		// Speeds calculated with Reynold's rules
 float relative_speed[FLOCK_SIZE][2];	// Speeds calculated with Reynold's rules
 float migr[2] = {MIGRATORY_DEST_X, MIGRATORY_DEST_Z};	        // Migration vector
 char* robot_name;
 float theta_robots[FLOCK_SIZE];
-float true_position[FLOCK_SIZE][3];     		// X, Z, Theta of the current robot (true), for debug only
 /********** Global varialbes **********/
 
 
@@ -211,13 +209,10 @@ static void reset() {
 	my_position[1] = init_z[robot_id];
 	migr[0] = my_position[0] + MIGRATORY_DEST_X;
 	migr[1] = my_position[1] + MIGRATORY_DEST_Z;
-	printf("Reset: robot %d\n",robot_id_u);
 
-	// Positioning mode sanity check
-	if (POSITIONING_MODE < POS_ENC_KF || POSITIONING_MODE > POS_GT){
-		printf("The input POSITIONING_MODE %d is wrong! Reset to encoder+KF positioning!\n", POSITIONING_MODE);
-	}
 	init_position(TIME_STEP, my_position[1], my_position[0], my_position[2]); // initialize localization variables
+	
+	printf("Reset: robot %d\n",robot_id_u);
 }
 
 
@@ -292,12 +287,6 @@ void update_self_motion(int msl, int msr) {
 		my_position[1] += dz;
 		my_position[2] += dtheta;
 	}
-	else if (POSITIONING_MODE == POS_GT){
-		// Careful, for debug only!!!
-		my_position[0] = -true_position[robot_id][1];
-		my_position[1] = true_position[robot_id][0];
-		my_position[2] = true_position[robot_id][2];
-	}
 	else{
 		printf("Not implemented positioning mode!\n");
 	}
@@ -305,9 +294,7 @@ void update_self_motion(int msl, int msr) {
 	// Keep orientation within 0, 2pi
 	if (VERBOSE){
 		printf("Robot: %d     ", robot_id);
-		printf("Self-estimated X: %.2f, Z: %.2f, Theta: %.4f      ", my_position[0], my_position[1], my_position[2]);
-		printf("KF results: X: %.2f, Z: %.2f, Theta: %.4f      ", gsl_matrix_get(X_enc,1,0), gsl_matrix_get(X_enc,0,0), _odo_enc.heading);
-		printf("Ground-truth: X: %.2f, Z: %.2f, Theta: %.4f     \n", -true_position[robot_id][1], true_position[robot_id][0], true_position[robot_id][2]);	
+		printf("Self-estimated X: %.2f, Z: %.2f, Theta: %.4f      \n", my_position[0], my_position[1], my_position[2]);
 	}
 }
 
@@ -461,19 +448,7 @@ void process_received_ping_messages(void) {
 	int other_robot_id;
 	while (wb_receiver_get_queue_length(receiver) > 0) {
 
-		// get true pos from supervisor, for debug only
 		inbuffer = (char*) wb_receiver_get_data(receiver);
-		if (inbuffer[0] != 'e'){
-			// printf("Robot %d \n",inbuffer[0]- '0');
-			int i = inbuffer[0]- '0';
-			sscanf(inbuffer,"%1d#%f#%f#%f",&i,&true_position[i][0],&true_position[i][1],&true_position[i][2]);
-			wb_receiver_next_packet(receiver);
-			true_position[i][2] += M_PI/2;
-			if (true_position[i][2] > 2*M_PI) true_position[i][2] -= 2.0*M_PI;
-			if (true_position[i][2] < 0) true_position[i][2] += 2.0*M_PI;
-			//   printf("Robot %d is in %f %f %f\n",i,true_position[i][0],true_position[i][1],true_position[i][2]);
-			continue;
-		}
 
     	// process relative measurements
 		message_direction = wb_receiver_get_emitter_direction(receiver);
@@ -497,11 +472,6 @@ void process_received_ping_messages(void) {
 	
 		if (VERBOSE){
     		printf("Robot %s, from robot %d, range %g, direction_x: %g, direction_y: %g, x: %g, z: %g. \n",robot_name,other_robot_id,range,x,y,relative_pos[other_robot_id][0],relative_pos[other_robot_id][1]);
-			// float l2_error = sqrt(pow(relative_pos[other_robot_id][0] - (true_position[other_robot_id][0] - true_position[robot_id][0]), 2) 
-			// + pow(relative_pos[other_robot_id][1] - (true_position[other_robot_id][1] - true_position[robot_id][1]), 2));
-			// float l1_error = ABS(relative_pos[other_robot_id][0] - (true_position[other_robot_id][0] - true_position[robot_id][0])) 
-			// + ABS(relative_pos[other_robot_id][1] - (true_position[other_robot_id][1] - true_position[robot_id][1]));
-			// printf("This relative measurement error: L2: %.3f, L1: %.3f. \n", l2_error, l1_error);
 		}
 
 		relative_speed[other_robot_id][0] = relative_speed[other_robot_id][0]*0.0 + 1.0*(1/DELTA_T)*(relative_pos[other_robot_id][0]-prev_relative_pos[other_robot_id][0]);
@@ -555,7 +525,6 @@ int main(){
 
 		prev_my_position[0] = my_position[0];
 		prev_my_position[1] = my_position[1];
-		// compute_position(TIME_STEP);
 		update_self_motion(msl,msr);
 		
 		process_received_ping_messages();
@@ -613,14 +582,15 @@ void init_position(int time_step, double x_init, double z_init, double h_init)
   _pose.x = x_init;
   _pose.y = z_init;
   _pose.heading = h_init;
-  _pose_origin.x= _pose.x;
-  _pose_origin.y= _pose.y;
-  _odo_acc.x= _pose.x;
-  _odo_acc.y= _pose.y;
-  _odo_acc.heading= _pose.heading;
-  _odo_enc.x= _pose.x;
-  _odo_enc.y= _pose.y;
-  _odo_enc.heading= _pose.heading;
+  _pose_origin.x= x_init;
+  _pose_origin.y= z_init;
+  _pose_origin.heading = h_init;
+  _odo_acc.x= x_init;
+  _odo_acc.y= z_init;
+  _odo_acc.heading= h_init;
+  _odo_enc.x= x_init;
+  _odo_enc.y= z_init;
+  _odo_enc.heading= h_init;
   
   odo_reset(time_step,&_pose_origin);
   kalman_reset(time_step);
