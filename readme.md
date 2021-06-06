@@ -45,10 +45,12 @@
   ```
 
 ### Modification of webots world
+
 * `/controller_world/worlds/test_obstacles.wbt`: The supervisor name need to be modified to `super0`
 * `/controller_world/worlds/test_crossing.wbt`: None
 
 ### Run supervisor
+
 * set controller of each supervisor to be `supervisor` (same for both two scenarios)
 * metric at each time step will be saved in `flocking_metrics0.csv` (the number depends on which group)
 * copy the data and run `Matlab/metric_computation/cal_single_avg_metric.m` in MATLAB will compute the average metric along the duration time.
@@ -61,3 +63,7 @@
 ### Formation controllers
 
 * The usage is similar to the flocking controllers.
+
+### PSO
+
+* If you are interested, you can open the world in "test_crossing_pso.wbt" and "test_obstacles_pso.wbt" in the "supplemental/worlds" folder. No modification is necessary for the world, just compile the controller and you can run the simulation to start PSO.
