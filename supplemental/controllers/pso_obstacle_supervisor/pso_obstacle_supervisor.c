@@ -38,7 +38,7 @@
 #define VMAX 40                       // Maximum velocity particle can attain
 #define MININIT 0.0                  // Lower bound on initialization value
 #define MAXINIT 80.0                    // Upper bound on initialization value
-#define ITS 3                         // Number of iterations to run
+#define ITS 5                         // Number of iterations to run
 // #define DATASIZE 6      // Number of elements in particle
 
 #define ROBOTS 1
