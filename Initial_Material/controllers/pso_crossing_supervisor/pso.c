@@ -116,7 +116,7 @@ double* pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double v
 
         // Update velocities
         /* >>>>>>>>>>>>> YOUR CODE GOES HERE <<<<<<<<<<<<<< */
-		v[i][j] *= 0.4;
+		v[i][j] *= 0.2;
 		v[i][j] += lweight*rnd()*(lbest[i][j] - swarm[i][j]) + nbweight*rnd()*(nbbest[i][j] - swarm[i][j]);
       
 		swarm[i][j] += v[i][j];

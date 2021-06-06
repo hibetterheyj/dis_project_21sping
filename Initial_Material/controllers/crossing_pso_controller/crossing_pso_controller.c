@@ -102,6 +102,7 @@ WbDeviceTag emitter;		// Handle for the emitter node
 int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
 // float e_puck_matrix[16] = {42.218327,59.493205,41.934509,49.085423,23.414172,57.789951,20.330942,42.331566,-19.902089,23.479039,39.421804,56.295590,39.940728,41.974669,20.274993,2.085171};
 // float e_puck_matrix[16] = {56,41,72,37,58,-56,-8,-56,-65,-28,-32,22,54,7,23,46};
+// double e_puck_matrix[16] = {-29.786929,-110.261668,30.514219,-52.203088,-54.998877,-85.627968,-81.578241,-52.887138,-104.088529,43.690877,-58.564927,-14.587816,47.761807,-71.875291,12.208054,-9.78};
 int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1) robot ID
 float relative_pos[FLOCK_SIZE][3];	// relative X, Z, Theta of all robots
 float prev_relative_pos[FLOCK_SIZE][3];	// Previous relative  X, Z, Theta values
@@ -549,9 +550,14 @@ int main(){
 			// RULE2_WEIGHT=0.01*inbuffer[3];	  
 			// RULE3_WEIGHT =inbuffer[4]/3.0;	
 			// MIGRATION_WEIGHT=inbuffer[5]/3.0;	//*2 maybe
+			
 
-			for (int idx;idx < 16;idx++){
+			for (int idx=0;idx < 16;idx++){
         			    e_puck_matrix[idx] = inbuffer[idx];
+      			}
+      			
+      			for (int idx=5;idx < 10;idx++){
+        			    e_puck_matrix[idx] = -inbuffer[idx];
       			}
 
 			
