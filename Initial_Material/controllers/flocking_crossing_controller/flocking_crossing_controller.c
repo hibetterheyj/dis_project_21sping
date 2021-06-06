@@ -88,14 +88,16 @@ WbDeviceTag right_motor; //handler for the right wheel of the robot
 WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
 WbDeviceTag receiver;		// Handle for the receiver node
 WbDeviceTag emitter;		// Handle for the emitter node
-int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
+// int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // for obstacle avoidance
 // float e_puck_matrix[16] = {42.218327,59.493205,41.934509,49.085423,23.414172,57.789951,20.330942,42.331566,-19.902089,23.479039,39.421804,56.295590,39.940728,41.974669,20.274993,2.085171};
 // float e_puck_matrix[16] = {56,41,72,37,58,-56,-8,-56,-65,-28,-32,22,54,7,23,46};
+float e_puck_matrix[16] = {20.192382,82.845237,-9.812918,72.959462,73.324211,-40.598743,-52.697608,-52.113719,-24.924225,-31.760283,-48.008236,64.295399,40.185319,40.279908,110.306604,104.416264};
 int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1) robot ID
 float relative_pos[FLOCK_SIZE][3];	// relative X, Z, Theta of all robots
 float prev_relative_pos[FLOCK_SIZE][3];	// Previous relative  X, Z, Theta values
 float my_position[3];     		// X, Z, Theta of the current robot
-float prev_my_position[3];  		// X, Z, Theta of the current robot in the previous time step
+float prev_my_position[3];  	// X, Z, Theta of the current robot in the previous time step
+float init_my_position[3];      // X, Z, Theta of the current robot at the very beginning
 float speed[FLOCK_SIZE][2];		// Speeds calculated with Reynold's rules
 float relative_speed[FLOCK_SIZE][2];	// Speeds calculated with Reynold's rules
 float migr[2] = {MIGRATORY_DEST_X, MIGRATORY_DEST_Z};	        // Migration vector
@@ -190,19 +192,24 @@ static void reset() {
 	if (robot_id < SINGLE_FLOCK_SIZE){
 		migr[0] = my_position[0] - MIGRATORY_DEST_X;
 		migr[1] = my_position[1] - MIGRATORY_DEST_Z;
+		my_position[2] = M_PI;
 	}
 	else{
 		migr[0] = my_position[0] + MIGRATORY_DEST_X;
 		migr[1] = my_position[1] + MIGRATORY_DEST_Z;
 	}
-
-	printf("Reset: robot %d\n",robot_id_u);
+	
+	for(i=0; i<3; i++){
+		init_my_position[i] = my_position[i];
+	}
 
 	// Positioning mode sanity check
 	if (POSITIONING_MODE < POS_ENC_KF || POSITIONING_MODE > POS_GT){
 		printf("The input POSITIONING_MODE %d is wrong! Reset to encoder+KF positioning!\n", POSITIONING_MODE);
 	}
 	init_position(TIME_STEP, my_position[1], my_position[0], my_position[2]); // initialize localization variables
+
+	printf("Reset: robot %d\n",robot_id_u);
 }
 
 
@@ -249,14 +256,24 @@ void limit_vel(int* v1, int* v2, int limit) {
  */
 void update_self_motion(int msl, int msr) {
 	if (POSITIONING_MODE == POS_ENC_KF){
-		my_position[0] = gsl_matrix_get(X_enc,1,0);
-		my_position[1] = gsl_matrix_get(X_enc,0,0);
+		// my_position[0] = gsl_matrix_get(X_enc,1,0);
+		// my_position[1] = gsl_matrix_get(X_enc,0,0);
+		// _odo_enc.heading = fmod(_odo_enc.heading, 2.0*M_PI);
+		// my_position[2] = _odo_enc.heading;
+
+		my_position[0] = _odo_enc.y;
+		my_position[1] = _odo_enc.x;
 		_odo_enc.heading = fmod(_odo_enc.heading, 2.0*M_PI);
 		my_position[2] = _odo_enc.heading;
 	}
 	else if (POSITIONING_MODE == POS_ACC_KF){
-		my_position[0] = gsl_matrix_get(X_acc,1,0);
-		my_position[1] = gsl_matrix_get(X_acc,0,0);
+		// my_position[0] = gsl_matrix_get(X_acc,1,0);
+		// my_position[1] = gsl_matrix_get(X_acc,0,0);
+		// _odo_acc.heading = fmod(_odo_acc.heading, 2.0*M_PI);
+		// my_position[2] = _odo_acc.heading;
+
+		my_position[0] = _odo_acc.y;
+		my_position[1] = _odo_acc.x;
 		_odo_acc.heading = fmod(_odo_acc.heading, 2.0*M_PI);
 		my_position[2] = _odo_acc.heading;
 	}
@@ -286,16 +303,18 @@ void update_self_motion(int msl, int msr) {
 	else{
 		printf("Not implemented positioning mode!\n");
 	}
-
-	if (robot_id < SINGLE_FLOCK_SIZE && POSITIONING_MODE != POS_GT)
-		my_position[2] = fmod(my_position[2] + M_PI, 2.0*M_PI);
   
 	// Keep orientation within 0, 2pi
 	if (VERBOSE){
 		printf("Robot: %d     ", robot_id);
 		printf("Self-estimated X: %.2f, Z: %.2f, Theta: %.4f      ", my_position[0], my_position[1], my_position[2]);
-		printf("KF results: X: %.2f, Z: %.2f, Theta: %.4f      ", gsl_matrix_get(X_enc,1,0), gsl_matrix_get(X_enc,0,0), _odo_enc.heading);
+		// printf("KF-ENC results: X: %.2f, Z: %.2f, Theta: %.4f      ", gsl_matrix_get(X_enc,1,0), gsl_matrix_get(X_enc,0,0), _odo_enc.heading);
 		printf("Ground-truth: X: %.2f, Z: %.2f, Theta: %.4f     \n", -true_position[robot_id][1], true_position[robot_id][0], true_position[robot_id][2]);	
+		float loc_self_error[3];
+		loc_self_error[0] = ABS(-true_position[robot_id][1] - my_position[0]);
+		loc_self_error[1] = ABS(true_position[robot_id][0] - my_position[1]);
+		loc_self_error[2] = fmod(ABS(true_position[robot_id][2] - my_position[2]), M_PI *2.0);
+		printf("Self-estiamted error X: %.2f, Z: %.2f, Theta: %.4f \n", loc_self_error[0], loc_self_error[1], loc_self_error[2]);
 	}
 }
 
@@ -404,18 +423,18 @@ void reynolds_rules() {
 		else
 			migration_strength = -1.0;
 
-		if (VERBOSE)
-			printf("Dist to migration destination: %g, strength: %g, ", dist_to_migration, migration_strength);
+		// if (VERBOSE)
+		// 	printf("Dist to migration destination: %g, strength: %g, ", dist_to_migration, migration_strength);
 		if (migration_strength > 0){
 			float migr_x, migr_y;
 			migr_x = -(migr[0]-my_position[0]) * MIGRATION_WEIGHT;
 			migr_y = (migr[1]-my_position[1]) * MIGRATION_WEIGHT;
 
-			if (VERBOSE){
-				printf("migr[0]: %g, my_position[0]: %g      ", migr[0], my_position[0]);
-				printf("migr[1]: %g, my_position[1]: %g      ", migr[1], my_position[1]);
-				printf("migr_x: %g, migr_y: %g \n", migr_x, migr_y);
-			}
+			// if (VERBOSE){
+			// 	printf("migr[0]: %g, my_position[0]: %g      ", migr[0], my_position[0]);
+			// 	printf("migr[1]: %g, my_position[1]: %g      ", migr[1], my_position[1]);
+			// 	printf("migr_x: %g, migr_y: %g \n", migr_x, migr_y);
+			// }
 			speed[robot_id][0] += migr_x;
 			speed[robot_id][1] += migr_y;
 
@@ -611,6 +630,7 @@ void init_position(int time_step, double x_init, double z_init, double h_init)
   _pose.heading = h_init;
   _pose_origin.x= _pose.x;
   _pose_origin.y= _pose.y;
+  _pose_origin.heading = _pose.heading;
   _odo_acc.x= _pose.x;
   _odo_acc.y= _pose.y;
   _odo_acc.heading= _pose.heading;
